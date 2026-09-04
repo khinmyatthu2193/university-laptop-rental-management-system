@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Sign Up | MIIT Staff</title>
+    <!-- Fonts and Icons -->
+    <link
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
+    <style>
+      :root {
+        --primary-navy: #1a237e;
+        --action-blue: #2196f3;
+        --accent-gold: #ffc107;
+        --white: #ffffff;
+        --gray-light: #f5f7fa;
+        --text-dark: #333;
+        --danger: #e74c3c;
+      }
+
+      body {
+        margin: 0;
+        font-family: "Poppins", sans-serif;
+        background: var(--gray-light);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+      }
+
+      .main-card {
+        display: flex;
+        background: var(--white);
+        width: 100%;
+        max-width: 1000px;
+        border-radius: 20px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+        min-height: 650px;
+      }
+
+      /* LEFT SIDE - UNIVERSITY BRANDING */
+      .brand-section {
+        flex: 1;
+        background: linear-gradient(135deg, var(--primary-navy), #283593);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        padding: 50px;
+        color: white;
+      }
+
+      .brand-logo {
+        width: 150px;
+        background: white;
+        padding: 15px;
+        border-radius: 50%;
+        margin-bottom: 25px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+      }
+
+      .brand-title {
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin-bottom: 10px;
+      }
+      .brand-subtitle {
+        color: var(--accent-gold);
+        letter-spacing: 2px;
+        text-transform: uppercase;
+        font-size: 1rem;
+      }
+      .brand-desc {
+        margin-top: 20px;
+        opacity: 0.8;
+        line-height: 1.6;
+      }
+
+      /* RIGHT SIDE - FORM */
+      .form-section {
+        flex: 1.5;
+        padding: 60px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+      }
+
+      .header-text h2 {
+        color: var(--primary-navy);
+        margin: 0;
+        font-size: 2rem;
+      }
+      .header-text p {
+        color: #777;
+        margin: 10px 0 30px 0;
+      }
+
+      .form-group {
+        margin-bottom: 20px;
+      }
+
+      .form-row {
+        display: flex;
+        gap: 20px;
+      }
+      .form-row .form-group {
+        flex: 1;
+      }
+
+      label {
+        display: block;
+        font-weight: 500;
+        color: var(--text-dark);
+        margin-bottom: 8px;
+        font-size: 0.9rem;
+      }
+
+      input,
+      select {
+        width: 100%;
+        padding: 12px 15px;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        font-family: "Poppins", sans-serif;
+        transition: 0.3s;
+        box-sizing: border-box;
+      }
+
+      input:focus,
+      select:focus {
+        border-color: var(--action-blue);
+        outline: none;
+        box-shadow: 0 0 0 4px rgba(33, 150, 243, 0.1);
+      }
+
+      .btn-signin {
+        width: 100%;
+        padding: 16px;
+        background: var(--primary-navy);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-size: 1.1rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: 0.3s;
+        margin-top: 10px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+      }
+
+      .btn-signin:hover {
+        background: var(--primary-dark);
+        transform: translateY(-2px);
+        box-shadow: 0 10px 25px rgba(26, 35, 126, 0.3);
+      }
+
+      .error-box {
+        background: #ffebee;
+        color: var(--danger);
+        padding: 15px;
+        border-radius: 8px;
+        margin-bottom: 25px;
+        border-left: 5px solid var(--danger);
+        font-size: 0.95rem;
+      }
+
+      @media (max-width: 768px) {
+        .main-card {
+          flex-direction: column;
+          margin: 20px;
+        }
+        .brand-section {
+          padding: 40px 20px;
+        }
+        .form-section {
+          padding: 40px 20px;
+        }
+        .form-row {
+          flex-direction: column;
+          gap: 0;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="main-card">
+      <!-- LEFT SIDE -->
+      <div class="brand-section">
+        <h2 class="brand-title">UniKit</h2>
+        <p class="brand-subtitle">Staff Portal</p>
+        <p class="brand-desc">
+          Join the management team. Register your details to access the
+          University Laptop Rental System.
+        </p>
+      </div>
+
+      <!-- RIGHT SIDE -->
+      <div class="form-section">
+        <div class="header-text">
+          <h2>Sign Up</h2>
+          <p>Create your account to get started.</p>
+        </div>
+
+        {% if error %}
+        <div class="error-box">
+          <i class="fas fa-exclamation-circle"></i> {{ error }}
+        </div>
+        {% endif %}
+
+        <form method="POST">
+          {% csrf_token %}
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Full Name</label>
+              <input
+                type="text"
+                name="name"
+                placeholder="e.g. Thura Aung"
+                required
+              />
+            </div>
+            <div class="form-group">
+              <label>Username</label>
+              <input
+                type="text"
+                name="username"
+                placeholder="Username"
+                required
+              />
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Outlook Mail</label>
+              <input
+                type="email"
+                name="email"
+                placeholder="user@miit.edu.mm"
+                required
+              />
+            </div>
+            <div class="form-group">
+              <label>Phone Number</label>
+              <input
+                type="tel"
+                name="phone"
+                placeholder="e.g. 09-123456789"
+                pattern="[0-9\-]{10,15}"
+              />
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Position</label>
+              <select name="position" required>
+                <option value="">Select Position</option>
+                <option value="Lecturer">Lecturer</option>
+                <option value="Assistant Lecturer">Assistant Lecturer</option>
+                <option value="Tutor">Tutor</option>
+                <option value="Admin Staff">Admin Staff</option>
+                <option value="Technician">Technician</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Department</label>
+              <select name="department" required>
+                <option value="">Select Department</option>
+                <option value="ITSM">ITSM</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Password</label>
+              <input
+                type="password"
+                name="password"
+                placeholder="Create Password"
+                required
+              />
+            </div>
+            <div class="form-group">
+              <label>Confirm Password</label>
+              <input
+                type="password"
+                name="confirm_password"
+                placeholder="Repeat Password"
+                required
+              />
+            </div>
+          </div>
+
+          <button type="submit" class="btn-signin">Sign Up</button>
+        </form>
+      </div>
+    </div>
+  </body>
+</html>

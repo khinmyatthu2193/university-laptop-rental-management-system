@@ -1,0 +1,1254 @@
+{% extends "home.html" %}
+{% block content %}
+
+<div class="staff-page">
+  <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
+    <div>
+      <h2 class="staff-title mb-1">Staff Management</h2>
+      <p class="text-muted mb-0">Manage teaching staff and office staff profiles.</p>
+    </div>
+
+    <div class="d-flex align-items-center gap-2 flex-wrap">
+      <div class="btn-group view-toggle">
+        <a href="?view=table&staff_type={{ selected_staff_type }}&unit={{ selected_unit }}&sort={{ selected_sort }}{% if search_query %}&search={{ search_query }}{% endif %}"
+           class="btn btn-sm {% if view != 'card' %}btn-dark active{% else %}btn-outline-secondary{% endif %}">
+          <i class="fas fa-table me-1"></i>Table
+        </a>
+
+        <a href="?view=card&staff_type={{ selected_staff_type }}&unit={{ selected_unit }}&sort={{ selected_sort }}{% if search_query %}&search={{ search_query }}{% endif %}"
+           class="btn btn-sm {% if view == 'card' %}btn-dark active{% else %}btn-outline-secondary{% endif %}">
+          <i class="fas fa-th-large me-1"></i>Cards
+        </a>
+      </div>
+
+      <button type="button" class="btn btn-upload-excel" id="openImportStaffBtn">
+        <i class="fa-solid fa-file-arrow-up me-2"></i>Import Excel
+      </button>
+
+      <button type="button" class="btn btn-add-staff" id="openAddStaffBtn">
+        <i class="fas fa-plus me-2"></i>Add Staff
+      </button>
+    </div>
+  </div>
+
+  <form method="get" class="staff-filter-row mb-4">
+    <input type="hidden" name="view" value="{{ view }}">
+    <input type="hidden" name="sort" value="{{ selected_sort }}">
+    {% if search_query %}
+      <input type="hidden" name="search" value="{{ search_query }}">
+    {% endif %}
+
+    <div class="filter-item">
+      <label class="form-label filter-label">Staff Type</label>
+      <select name="staff_type" class="form-select filter-input">
+        <option value="">All Types</option>
+        {% for val, label in staff_types %}
+          <option value="{{ val }}" {% if selected_staff_type == val %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="filter-item">
+      <label class="form-label filter-label">Department / Section</label>
+      <select name="unit" class="form-select filter-input">
+        <option value="">All Departments / Sections</option>
+
+        <optgroup label="Teaching Departments">
+          {% for val, label in departments %}
+            <option value="{{ val }}" {% if selected_unit == val %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </optgroup>
+
+        <optgroup label="Office Sections">
+          {% for val, label in office_sections %}
+            <option value="{{ val }}" {% if selected_unit == val %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </optgroup>
+      </select>
+    </div>
+
+    <div class="filter-btn-wrap">
+      <button type="submit" class="btn w-100 filter-btn">Apply</button>
+    </div>
+
+    <div class="filter-reset-wrap">
+      <a href="?view={{ view }}{% if search_query %}&search={{ search_query }}{% endif %}" class="btn btn-reset-filter w-100">
+        Reset
+      </a>
+    </div>
+  </form>
+
+  <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <h4 class="mb-0 section-title">Staff Members <span class="text-muted">({{ total_staff }})</span></h4>
+
+    <form method="get" class="staff-sort-form d-flex align-items-center gap-2">
+      <input type="hidden" name="view" value="{{ view }}">
+      <input type="hidden" name="staff_type" value="{{ selected_staff_type }}">
+      <input type="hidden" name="unit" value="{{ selected_unit }}">
+      {% if search_query %}
+        <input type="hidden" name="search" value="{{ search_query }}">
+      {% endif %}
+
+      <label class="small text-muted fw-semibold mb-0">Sort by</label>
+      <select name="sort" class="form-select form-select-sm staff-sort-select" onchange="this.form.submit()">
+        <option value="newest" {% if selected_sort == 'newest' %}selected{% endif %}>Newest</option>
+        <option value="oldest" {% if selected_sort == 'oldest' %}selected{% endif %}>Oldest</option>
+        <option value="az" {% if selected_sort == 'az' %}selected{% endif %}>A–Z</option>
+        <option value="za" {% if selected_sort == 'za' %}selected{% endif %}>Z–A</option>
+      </select>
+    </form>
+  </div>
+
+  {% if view == 'card' %}
+    <div class="row g-4">
+      {% for s in staff %}
+      <div class="col-xl-4 col-md-6">
+        <div class="card staff-card h-100">
+          <div class="card-body p-4">
+            <div class="d-flex justify-content-between align-items-start mb-3">
+              <div>
+                <h5 class="fw-bold mb-1">{{ s.person.name }}</h5>
+                <p class="text-muted small mb-0">{{ s.person.outlook_mail }}</p>
+              </div>
+              <span class="badge {% if s.staff_type == 'Teaching' %}bg-primary{% else %}bg-info text-dark{% endif %}">
+                {{ s.staff_type }}
+              </span>
+            </div>
+
+            <div class="info-pair mb-2">
+              <span class="text-muted">Position</span>
+              <span class="fw-semibold">{{ s.position|default:"—" }}</span>
+            </div>
+
+            <div class="info-pair mb-2">
+              <span class="text-muted">{% if s.staff_type == 'Teaching' %}Department{% else %}Office Section{% endif %}</span>
+              <span class="fw-semibold">
+                {% if s.staff_type == 'Teaching' %}
+                  {{ s.get_department_display|default:"—" }}
+                {% else %}
+                  {{ s.get_office_section_display|default:"—" }}
+                {% endif %}
+              </span>
+            </div>
+
+            <div class="info-pair mb-3">
+              <span class="text-muted">Laptop</span>
+              <span class="fw-semibold">
+                {% if s.current_laptop %}
+                  {{ s.current_laptop.SerialNumber }}
+                {% else %}
+                  Not Assigned
+                {% endif %}
+              </span>
+            </div>
+
+            <div class="action-buttons mt-3">
+              <button type="button" class="btn btn-sm btn-icon btn-view view-btn" data-id="{{ s.id }}" title="View">
+                <i class="fas fa-eye"></i>
+              </button>
+              <button type="button" class="btn btn-sm btn-icon btn-edit edit-btn" data-id="{{ s.id }}" title="Edit">
+                <i class="fas fa-edit"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+      {% empty %}
+      <div class="col-12">
+        <div class="empty-box text-center">
+          <i class="fas fa-users fa-2x mb-3 text-muted"></i>
+          <p class="mb-0 text-muted">No staff found.</p>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="card table-shell border-0 shadow-sm">
+      <div class="table-responsive">
+        <table class="table align-middle mb-0 staff-table">
+          <thead>
+            <tr>
+              <th style="width: 80px;">No.</th>
+              <th>Name</th>
+              <th>Type</th>
+              <th>Dept / Section</th>
+              <th>Position</th>
+              <th>Laptop</th>
+              <th class="text-center" style="width: 130px;">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for s in staff %}
+            <tr>
+              <td class="text-muted">{{ forloop.counter }}</td>
+              <td>
+                <div class="fw-bold">{{ s.person.name }}</div>
+                <div class="small text-muted">{{ s.person.outlook_mail }}</div>
+              </td>
+              <td>
+                <span class="badge {% if s.staff_type == 'Teaching' %}bg-primary{% else %}bg-info text-dark{% endif %}">
+                  {{ s.staff_type }}
+                </span>
+              </td>
+              <td>
+                {% if s.staff_type == 'Teaching' %}
+                  {{ s.get_department_display|default:"—" }}
+                {% else %}
+                  {{ s.get_office_section_display|default:"—" }}
+                {% endif %}
+              </td>
+              <td>{{ s.position|default:"—" }}</td>
+              <td>
+                {% if s.current_laptop %}
+                  <span class="badge bg-success">{{ s.current_laptop.SerialNumber }}</span>
+                {% else %}
+                  <span class="badge bg-secondary">Not Assigned</span>
+                {% endif %}
+              </td>
+              <td class="text-center">
+                <div class="action-buttons justify-content-center">
+                  <button type="button" class="btn btn-sm btn-icon btn-view view-btn" data-id="{{ s.id }}" title="View">
+                    <i class="fas fa-eye"></i>
+                  </button>
+                  <button type="button" class="btn btn-sm btn-icon btn-edit edit-btn" data-id="{{ s.id }}" title="Edit">
+                    <i class="fas fa-edit"></i>
+                  </button>
+                </div>
+              </td>
+            </tr>
+            {% empty %}
+            <tr>
+              <td colspan="7" class="text-center text-muted py-4">No staff found.</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  {% endif %}
+</div>
+
+<!-- ADD STAFF POPUP -->
+<div class="staff-popup-overlay" id="addStaffPopup">
+  <div class="staff-popup-panel">
+    <form method="post" action="{% url 'rental_system:staff_create' %}" class="staff-form h-100 d-flex flex-column">
+      {% csrf_token %}
+      <input type="hidden" name="staff_status" value="Active">
+
+      <div class="staff-popup-header">
+        <h5 class="mb-0 fw-bold">
+          <i class="fas fa-user-plus me-2"></i>Add New Staff
+        </h5>
+        <button type="button" class="staff-popup-close" data-close-popup="addStaffPopup">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+
+      <div class="staff-popup-body">
+        <div class="form-section-inner">
+          <div class="form-block mb-4">
+            <h6 class="form-block-title">Personal Information</h6>
+            <div class="row g-4">
+              <div class="col-md-6">
+                <label class="form-label fw-semibold">Full Name</label>
+                <input type="text" name="name" class="form-control soft-input" placeholder="e.g. Daw Aye Aye" required>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label fw-semibold">MIIT Email</label>
+                <input type="email" name="outlook_mail" class="form-control soft-input miit-email-input" placeholder="name@miit.edu.mm" required>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label fw-semibold">Phone Number</label>
+                <input type="text" name="phone_number" class="form-control soft-input" placeholder="09xxxxxxxxx">
+              </div>
+              <div class="col-md-6">
+                <label class="form-label fw-semibold">Initial Laptop</label>
+                <select name="laptop" class="form-select soft-input">
+                  <option value="">-- No Laptop --</option>
+                  {{ available_laptops|default:"0" }}
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-block">
+            <h6 class="form-block-title">Staff Information</h6>
+            <div class="row g-4">
+              <div class="col-md-6">
+                <label class="form-label fw-semibold">Staff Type</label>
+                <select name="staff_type" class="form-select soft-input" id="mainStaffType" required>
+                  <option value="" selected disabled>Select staff type</option>
+                  <option value="Teaching">Teaching Staff</option>
+                  <option value="Office">Office Staff</option>
+                </select>
+              </div>
+
+              <div class="col-md-6">
+                <label class="form-label fw-semibold">Position / Rank</label>
+                <div id="teachingPosBox" style="display:none;">
+                  <select id="teachSelect" class="form-select soft-input">
+                    <option value="Professor">Professor</option>
+                    <option value="Associate Professor">Associate Professor</option>
+                    <option value="Lecturer">Lecturer</option>
+                    <option value="Assistant Lecturer">Assistant Lecturer</option>
+                    <option value="Tutor">Tutor</option>
+                  </select>
+                </div>
+                <input type="text" id="officePosInput" class="form-control soft-input" placeholder="e.g. Accountant" style="display:none;">
+                <input type="hidden" name="position" id="finalAddPos">
+              </div>
+
+              <div class="col-12" id="deptRow" style="display:none;">
+                <label class="form-label fw-semibold" id="deptLabel">Department</label>
+                <select name="department" id="deptSelect" class="form-select soft-input">
+                  {% for val, label in departments %}
+                    <option value="{{ val }}">{{ label }}</option>
+                  {% endfor %}
+                </select>
+
+                <select name="office_section" id="sectSelect" class="form-select soft-input mt-3" style="display:none;">
+                  {% for val, label in office_sections %}
+                    <option value="{{ val }}">{{ label }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="staff-popup-footer">
+        <button type="button" class="btn btn-outline-secondary" data-close-popup="addStaffPopup">Cancel</button>
+        <button type="submit" class="btn btn-success">
+          <i class="fas fa-save me-1"></i>Save Staff
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- IMPORT STAFF EXCEL POPUP -->
+<div class="staff-popup-overlay" id="importStaffPopup">
+  <div class="staff-popup-panel" style="max-width: 720px; height: auto;">
+    <form method="post" action="{% url 'rental_system:import_staff' %}" enctype="multipart/form-data" class="staff-form h-100 d-flex flex-column">
+      {% csrf_token %}
+
+      <div class="staff-popup-header">
+        <h5 class="mb-0 fw-bold">
+          <i class="fas fa-file-excel me-2"></i>Import Staff from Excel
+        </h5>
+        <button type="button" class="staff-popup-close" data-close-popup="importStaffPopup">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+
+      <div class="staff-popup-body">
+        <div class="form-section-inner">
+          <div class="form-block">
+            <h6 class="form-block-title">Upload Excel File</h6>
+
+            <div class="mb-3">
+              <label class="form-label fw-semibold">Choose .xlsx file</label>
+              <input type="file" name="file" class="form-control soft-input" accept=".xlsx,.xls" required>
+            </div>
+
+            <div class="alert alert-info mb-0">
+              <strong>Expected columns:</strong><br>
+              <code>name, outlook_mail, phone_number, staff_type, position, department, office_section, laptop</code>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="staff-popup-footer">
+        <button type="button" class="btn btn-outline-secondary" data-close-popup="importStaffPopup">Cancel</button>
+        <button type="submit" class="btn btn-success">
+          <i class="fas fa-upload me-1"></i>Upload Excel
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const teachingPositions = [
+        "Professor",
+        "Associate Professor",
+        "Lecturer",
+        "Assistant Lecturer",
+        "Tutor"
+    ];
+
+    const departmentChoices = [
+        {% for val, label in departments %}
+        { value: "{{ val|escapejs }}", label: "{{ label|escapejs }}" }{% if not forloop.last %},{% endif %}
+        {% endfor %}
+    ];
+
+    const officeSectionChoices = [
+        {% for val, label in office_sections %}
+        { value: "{{ val|escapejs }}", label: "{{ label|escapejs }}" }{% if not forloop.last %},{% endif %}
+        {% endfor %}
+    ];
+
+    const availableLaptops = [
+        {{ available_laptops|default:"0" }}
+    ];
+
+    const staffData = {
+        {% for s in staff %}
+        "{{ s.id }}": {
+            id: "{{ s.id }}",
+            name: "{{ s.person.name|default:''|escapejs }}",
+            outlook_mail: "{{ s.person.outlook_mail|default:''|escapejs }}",
+            phone_number: "{{ s.person.phone_number|default:''|escapejs }}",
+            staff_type: "{{ s.staff_type|default:''|escapejs }}",
+            position: "{{ s.position|default:''|escapejs }}",
+            staff_status: "{{ s.staff_status|default:'Active'|escapejs }}",
+            department: "{{ s.department|default:''|escapejs }}",
+            department_display: "{{ s.get_department_display|default:''|escapejs }}",
+            office_section: "{{ s.office_section|default:''|escapejs }}",
+            office_section_display: "{{ s.get_office_section_display|default:''|escapejs }}",
+            laptop: {% if s.current_laptop %}{
+                id: "{{ s.current_laptop.id }}",
+                serial: "{{ s.current_laptop.SerialNumber|escapejs }}",
+                brand: "{{ s.current_laptop.brand|default:''|escapejs }}",
+                name: "{{ s.current_laptop.name|default:''|escapejs }}"
+            }{% else %}null{% endif %}
+        }{% if not forloop.last %},{% endif %}
+        {% endfor %}
+    };
+
+    const updateUrlTemplate = "{% url 'rental_system:staff_update' 0 %}";
+
+    function getUpdateUrl(id) {
+        return updateUrlTemplate.replace('/0/', '/' + id + '/');
+    }
+
+    function isMiitEmail(value) {
+        return /^[^@\s]+@miit\.edu\.mm$/i.test((value || '').trim());
+    }
+
+    function buildOptions(choices, selectedValue, placeholder) {
+        let html = '';
+        if (placeholder) {
+            html += `<option value="">${placeholder}</option>`;
+        }
+        choices.forEach(item => {
+            html += `<option value="${item.value}" ${String(item.value) === String(selectedValue) ? 'selected' : ''}>${item.label}</option>`;
+        });
+        return html;
+    }
+
+    function buildLaptopOptions(currentLaptop) {
+        let html = `<option value="">-- No Laptop --</option>`;
+        if (currentLaptop) {
+            html += `<option value="${currentLaptop.id}" selected>${currentLaptop.serial} (Current)</option>`;
+        }
+        availableLaptops.forEach(l => {
+            if (!currentLaptop || String(l.id) !== String(currentLaptop.id)) {
+                html += `<option value="${l.id}">${l.serial}</option>`;
+            }
+        });
+        return html;
+    }
+
+    function openPopup(id) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.classList.add('active');
+        document.body.classList.add('popup-open');
+    }
+
+    function closePopup(id) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.classList.remove('active');
+        if (!document.querySelector('.staff-popup-overlay.active')) {
+            document.body.classList.remove('popup-open');
+        }
+    }
+
+    document.getElementById('openAddStaffBtn')?.addEventListener('click', function() {
+        openPopup('addStaffPopup');
+    });
+
+    document.getElementById('openImportStaffBtn')?.addEventListener('click', function() {
+        openPopup('importStaffPopup');
+    });
+
+    document.addEventListener('click', function(e) {
+        const closeBtn = e.target.closest('[data-close-popup]');
+        if (closeBtn) {
+            closePopup(closeBtn.getAttribute('data-close-popup'));
+            return;
+        }
+
+        const overlay = e.target.closest('.staff-popup-overlay');
+        if (overlay && e.target === overlay) {
+            overlay.classList.remove('active');
+            if (!document.querySelector('.staff-popup-overlay.active')) {
+                document.body.classList.remove('popup-open');
+            }
+        }
+    });
+
+    const typeSel = document.getElementById('mainStaffType');
+    const teachingPosBox = document.getElementById('teachingPosBox');
+    const teachSelect = document.getElementById('teachSelect');
+    const officePosInput = document.getElementById('officePosInput');
+    const finalAddPos = document.getElementById('finalAddPos');
+    const deptRow = document.getElementById('deptRow');
+    const deptLabel = document.getElementById('deptLabel');
+    const deptSelect = document.getElementById('deptSelect');
+    const sectSelect = document.getElementById('sectSelect');
+
+    function updateAddForm() {
+        if (!typeSel) return;
+        const isTeaching = typeSel.value === 'Teaching';
+
+        teachingPosBox.style.display = isTeaching ? 'block' : 'none';
+        officePosInput.style.display = isTeaching ? 'none' : 'block';
+        deptRow.style.display = typeSel.value ? 'block' : 'none';
+        deptSelect.style.display = isTeaching ? 'block' : 'none';
+        sectSelect.style.display = isTeaching ? 'none' : 'block';
+        deptLabel.innerText = isTeaching ? 'Department' : 'Office Section';
+        finalAddPos.value = isTeaching ? teachSelect.value : officePosInput.value;
+    }
+
+    if (typeSel) {
+        typeSel.addEventListener('change', updateAddForm);
+        teachSelect.addEventListener('change', updateAddForm);
+        officePosInput.addEventListener('input', updateAddForm);
+    }
+
+    function createViewOffcanvas(staff) {
+        const offcanvasId = `viewStaff${staff.id}`;
+        const existing = document.getElementById(offcanvasId);
+        if (existing) existing.remove();
+
+        const unitLabel = staff.staff_type === 'Teaching' ? 'Department' : 'Office Section';
+        const unitValue = staff.staff_type === 'Teaching'
+            ? (staff.department_display || '—')
+            : (staff.office_section_display || '—');
+
+        const laptopInfo = staff.laptop ? `
+            <div class="card mb-4 shadow-sm">
+                <div class="card-header section-header">
+                    <i class="fas fa-laptop me-2"></i>Laptop Information
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-5 text-muted">Serial Number:</div>
+                        <div class="col-7 fw-bold">${staff.laptop.serial}</div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-5 text-muted">Brand:</div>
+                        <div class="col-7">${staff.laptop.brand || '—'}</div>
+                    </div>
+                    <div class="row mb-0">
+                        <div class="col-5 text-muted">Model:</div>
+                        <div class="col-7">${staff.laptop.name || '—'}</div>
+                    </div>
+                </div>
+            </div>
+        ` : `
+            <div class="card mb-4 shadow-sm">
+                <div class="card-header section-header">
+                    <i class="fas fa-laptop me-2"></i>Laptop Information
+                </div>
+                <div class="card-body">
+                    <p class="text-muted text-center py-3 mb-0">No laptop assigned to this staff member.</p>
+                </div>
+            </div>
+        `;
+
+        const offcanvasHtml = `
+            <div class="offcanvas offcanvas-end custom-offcanvas" id="${offcanvasId}" tabindex="-1">
+                <div class="offcanvas-header custom-offcanvas-header">
+                    <h5 class="offcanvas-title fw-bold">${staff.name}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+                </div>
+
+                <div class="offcanvas-body custom-offcanvas-body">
+                    <div class="mb-4 text-center">
+                        ${staff.laptop
+                            ? '<span class="badge bg-success p-3 w-100" style="font-size:1rem;">✅ Laptop Assigned</span>'
+                            : '<span class="badge bg-secondary p-3 w-100" style="font-size:1rem;">❌ No Laptop Assigned</span>'}
+                    </div>
+
+                    <div class="card mb-4 shadow-sm">
+                        <div class="card-header section-header">
+                            <i class="fas fa-user me-2"></i>Basic Information
+                        </div>
+                        <div class="card-body">
+                            <div class="row mb-3">
+                                <div class="col-5 text-muted">Email:</div>
+                                <div class="col-7">${staff.outlook_mail || '—'}</div>
+                            </div>
+                            <div class="row mb-3">
+                                <div class="col-5 text-muted">Phone:</div>
+                                <div class="col-7">${staff.phone_number || '—'}</div>
+                            </div>
+                            <div class="row mb-0">
+                                <div class="col-5 text-muted">Status:</div>
+                                <div class="col-7"><span class="badge bg-dark">${staff.staff_status || 'Active'}</span></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card mb-4 shadow-sm">
+                        <div class="card-header section-header">
+                            <i class="fas fa-briefcase me-2"></i>Staff Information
+                        </div>
+                        <div class="card-body">
+                            <div class="row mb-3">
+                                <div class="col-5 text-muted">Staff Type:</div>
+                                <div class="col-7">
+                                    <span class="badge ${staff.staff_type === 'Teaching' ? 'bg-primary' : 'bg-info text-dark'}">${staff.staff_type || '—'}</span>
+                                </div>
+                            </div>
+                            <div class="row mb-3">
+                                <div class="col-5 text-muted">Position:</div>
+                                <div class="col-7">${staff.position || '—'}</div>
+                            </div>
+                            <div class="row mb-0">
+                                <div class="col-5 text-muted">${unitLabel}:</div>
+                                <div class="col-7">${unitValue}</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    ${laptopInfo}
+                </div>
+
+                <div class="offcanvas-footer custom-offcanvas-footer">
+                    <div class="d-flex gap-2 justify-content-end">
+                        <button class="btn btn-secondary" data-bs-dismiss="offcanvas">
+                            <i class="fas fa-times me-1"></i>Close
+                        </button>
+                        <button class="btn btn-outline-primary edit-from-view" data-id="${staff.id}">
+                            <i class="fas fa-edit me-1"></i>Edit Staff
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.insertAdjacentHTML('beforeend', offcanvasHtml);
+        return new bootstrap.Offcanvas(document.getElementById(offcanvasId));
+    }
+
+    function createEditPopup(staff) {
+        const popupId = `editStaffPopup${staff.id}`;
+        const existing = document.getElementById(popupId);
+        if (existing) existing.remove();
+
+        const teachingOptions = teachingPositions.map(pos =>
+            `<option value="${pos}" ${staff.staff_type === 'Teaching' && staff.position === pos ? 'selected' : ''}>${pos}</option>`
+        ).join('');
+
+        const popupHtml = `
+            <div class="staff-popup-overlay" id="${popupId}">
+                <div class="staff-popup-panel">
+                    <form method="post" action="${getUpdateUrl(staff.id)}" class="staff-form h-100 d-flex flex-column">
+                        {% csrf_token %}
+                        <input type="hidden" name="staff_status" value="${staff.staff_status || 'Active'}">
+
+                        <div class="staff-popup-header">
+                            <h5 class="mb-0 fw-bold">
+                                <i class="fas fa-edit me-2"></i>Edit Staff: ${staff.name}
+                            </h5>
+                            <button type="button" class="staff-popup-close" data-close-popup="${popupId}">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+
+                        <div class="staff-popup-body">
+                            <div class="form-section-inner">
+                                <div class="form-block mb-4">
+                                    <h6 class="form-block-title">Personal Information</h6>
+                                    <div class="row g-4">
+                                        <div class="col-md-6">
+                                            <label class="form-label fw-semibold">Full Name</label>
+                                            <input type="text" name="name" class="form-control soft-input" value="${staff.name || ''}" placeholder="e.g. Daw Aye Aye" required>
+                                        </div>
+
+                                        <div class="col-md-6">
+                                            <label class="form-label fw-semibold">MIIT Email</label>
+                                            <input type="email" name="outlook_mail" class="form-control soft-input miit-email-input" value="${staff.outlook_mail || ''}" placeholder="name@miit.edu.mm" required>
+                                        </div>
+
+                                        <div class="col-md-6">
+                                            <label class="form-label fw-semibold">Phone Number</label>
+                                            <input type="text" name="phone_number" class="form-control soft-input" value="${staff.phone_number || ''}" placeholder="09xxxxxxxxx">
+                                        </div>
+
+                                        <div class="col-md-6">
+                                            <label class="form-label fw-semibold">Laptop</label>
+                                            <select name="laptop" class="form-select soft-input">
+                                                ${buildLaptopOptions(staff.laptop)}
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="form-block">
+                                    <h6 class="form-block-title">Staff Information</h6>
+                                    <div class="row g-4">
+                                        <div class="col-md-6">
+                                            <label class="form-label fw-semibold">Staff Type</label>
+                                            <select name="staff_type" class="form-select soft-input edit-staff-type" required>
+                                                <option value="Teaching" ${staff.staff_type === 'Teaching' ? 'selected' : ''}>Teaching Staff</option>
+                                                <option value="Office" ${staff.staff_type === 'Office' ? 'selected' : ''}>Office Staff</option>
+                                            </select>
+                                        </div>
+
+                                        <div class="col-md-6">
+                                            <label class="form-label fw-semibold">Position / Rank</label>
+                                            <div class="edit-teaching-pos-box" style="display:none;">
+                                                <select class="form-select soft-input edit-teach-select">
+                                                    ${teachingOptions}
+                                                </select>
+                                            </div>
+                                            <input type="text" class="form-control soft-input edit-office-pos-input" value="${staff.staff_type === 'Office' ? (staff.position || '') : ''}" placeholder="e.g. Accountant" style="display:none;">
+                                            <input type="hidden" name="position" class="edit-final-pos">
+                                        </div>
+
+                                        <div class="col-12 edit-unit-row" style="display:none;">
+                                            <label class="form-label fw-semibold edit-unit-label">Department</label>
+                                            <select name="department" class="form-select soft-input edit-dept-select">
+                                                ${buildOptions(departmentChoices, staff.department, '')}
+                                            </select>
+
+                                            <select name="office_section" class="form-select soft-input edit-section-select mt-3">
+                                                ${buildOptions(officeSectionChoices, staff.office_section, '')}
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="staff-popup-footer">
+                            <button type="button" class="btn btn-outline-secondary" data-close-popup="${popupId}">Cancel</button>
+                            <button type="submit" class="btn btn-success">
+                                <i class="fas fa-save me-1"></i>Update Staff
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        `;
+
+        document.body.insertAdjacentHTML('beforeend', popupHtml);
+
+        const popupEl = document.getElementById(popupId);
+        const typeEl = popupEl.querySelector('.edit-staff-type');
+        const teachingBoxEl = popupEl.querySelector('.edit-teaching-pos-box');
+        const teachingSelectEl = popupEl.querySelector('.edit-teach-select');
+        const officeInputEl = popupEl.querySelector('.edit-office-pos-input');
+        const finalPosEl = popupEl.querySelector('.edit-final-pos');
+        const unitRowEl = popupEl.querySelector('.edit-unit-row');
+        const unitLabelEl = popupEl.querySelector('.edit-unit-label');
+        const deptSelectEl = popupEl.querySelector('.edit-dept-select');
+        const sectionSelectEl = popupEl.querySelector('.edit-section-select');
+
+        function syncEditForm() {
+            const isTeaching = typeEl.value === 'Teaching';
+            teachingBoxEl.style.display = isTeaching ? 'block' : 'none';
+            officeInputEl.style.display = isTeaching ? 'none' : 'block';
+            unitRowEl.style.display = 'block';
+            deptSelectEl.style.display = isTeaching ? 'block' : 'none';
+            sectionSelectEl.style.display = isTeaching ? 'none' : 'block';
+            unitLabelEl.innerText = isTeaching ? 'Department' : 'Office Section';
+
+            if (isTeaching) {
+                if (staff.position && teachingPositions.includes(staff.position)) {
+                    teachingSelectEl.value = staff.position;
+                }
+                finalPosEl.value = teachingSelectEl.value;
+                officeInputEl.value = '';
+            } else {
+                finalPosEl.value = officeInputEl.value;
+            }
+        }
+
+        typeEl.addEventListener('change', syncEditForm);
+        teachingSelectEl.addEventListener('change', syncEditForm);
+        officeInputEl.addEventListener('input', syncEditForm);
+
+        syncEditForm();
+        return popupId;
+    }
+
+    document.querySelectorAll('.view-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const id = this.getAttribute('data-id');
+            const staff = staffData[id];
+            if (!staff) return;
+            const offcanvas = createViewOffcanvas(staff);
+            offcanvas.show();
+        });
+    });
+
+    document.querySelectorAll('.edit-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const id = this.getAttribute('data-id');
+            const staff = staffData[id];
+            if (!staff) return;
+            const popupId = createEditPopup(staff);
+            openPopup(popupId);
+        });
+    });
+
+    document.addEventListener('click', function(e) {
+        const btn = e.target.closest('.edit-from-view');
+        if (!btn) return;
+
+        const id = btn.getAttribute('data-id');
+        const staff = staffData[id];
+        if (!staff) return;
+
+        const offcanvasElement = btn.closest('.offcanvas');
+        if (offcanvasElement) {
+            const offcanvas = bootstrap.Offcanvas.getInstance(offcanvasElement);
+            if (offcanvas) offcanvas.hide();
+        }
+
+        setTimeout(() => {
+            const popupId = createEditPopup(staff);
+            openPopup(popupId);
+        }, 250);
+    });
+
+    document.addEventListener('submit', function(e) {
+        const form = e.target;
+        if (!form.classList.contains('staff-form')) return;
+
+        const emailInput = form.querySelector('.miit-email-input');
+        if (emailInput && !isMiitEmail(emailInput.value)) {
+            e.preventDefault();
+            alert('We only accept MIIT Outlook mail (miit.edu.mm).');
+            emailInput.focus();
+        }
+    });
+
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            document.querySelectorAll('.staff-popup-overlay.active').forEach(p => p.classList.remove('active'));
+            if (!document.querySelector('.staff-popup-overlay.active')) {
+                document.body.classList.remove('popup-open');
+            }
+        }
+    });
+});
+</script>
+
+<style>
+:root {
+    --light-blue: #cce3f3;
+    --blue: #5b72b5;
+    --sky-blue: #89adda;
+    --yellow-gold: #dde659;
+    --purple-dark: #362e90;
+}
+
+body.popup-open {
+    overflow: hidden;
+}
+
+.staff-title {
+    font-size: 2.2rem;
+    font-weight: 800;
+    color: #362e90;
+}
+
+.section-title {
+    font-weight: 700;
+    color: #172b4d;
+}
+
+.btn-add-staff {
+    background: linear-gradient(135deg, #5867d8, #362e90);
+    color: #fff;
+    border: none;
+    border-radius: 999px;
+    padding: 10px 22px;
+    font-weight: 700;
+}
+
+.btn-add-staff:hover {
+    color: #fff;
+    opacity: 0.95;
+}
+
+.btn-upload-excel {
+    background: linear-gradient(135deg, #1d976c, #147a55);
+    color: #fff;
+    border: none;
+    border-radius: 999px;
+    padding: 10px 22px;
+    font-weight: 700;
+}
+
+.btn-upload-excel:hover {
+    color: #fff;
+    opacity: 0.95;
+}
+
+.staff-filter-row {
+    display: grid;
+    grid-template-columns: 1.3fr 1.5fr 180px 140px;
+    gap: 16px;
+    align-items: end;
+    margin-bottom: 28px;
+}
+
+.filter-label {
+    font-weight: 700;
+    color: #3e557f;
+    font-size: 0.95rem;
+    margin-bottom: 8px;
+}
+
+.filter-input {
+    border-radius: 999px;
+    min-height: 54px;
+    border: 1px solid #d7dfeb;
+    background: rgba(255,255,255,0.92);
+    box-shadow: none;
+}
+
+.filter-input:focus,
+.soft-input:focus,
+.form-control:focus,
+.form-select:focus {
+    border-color: var(--yellow-gold);
+    box-shadow: 0 0 0 0.18rem rgba(221, 230, 89, 0.25);
+}
+
+.filter-btn {
+    min-height: 54px;
+    border-radius: 999px;
+    font-weight: 700;
+    border: none !important;
+    color: #fff !important;
+    background: linear-gradient(135deg, #5867d8, #362e90) !important;
+}
+
+.filter-btn:hover {
+    color: #fff !important;
+    background: linear-gradient(135deg, #5362d1, #2f2785) !important;
+}
+
+.btn-reset-filter {
+    min-height: 54px;
+    border-radius: 999px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    font-weight: 700;
+    color: #6a768b;
+    background: rgba(255,255,255,0.78);
+    border: 1px solid #d7dfeb;
+}
+
+.btn-reset-filter:hover {
+    color: #172b4d;
+    background: #fff;
+}
+
+.staff-sort-form {
+    margin-left: auto;
+}
+
+.staff-sort-select {
+    min-width: 130px;
+    border-radius: 999px;
+    border: 1px solid #d7dfeb;
+    background: rgba(255,255,255,0.92);
+    font-weight: 600;
+    color: #172b4d;
+    padding-left: 14px;
+    padding-right: 36px;
+    box-shadow: none;
+}
+
+.staff-sort-select:focus {
+    border-color: var(--yellow-gold);
+    box-shadow: 0 0 0 0.18rem rgba(221, 230, 89, 0.25);
+}
+
+.table-shell {
+    border-radius: 22px;
+    overflow: hidden;
+}
+
+.staff-table thead th {
+    background: #f8fbff;
+    font-weight: 800;
+    border-bottom: 1px solid #e5edf8;
+    color: #172b4d;
+}
+
+.staff-table tbody tr:hover {
+    background: #fafcff;
+}
+
+.staff-card {
+    border: none;
+    border-radius: 20px;
+    box-shadow: 0 10px 30px rgba(91, 114, 181, 0.12);
+    transition: all 0.25s ease;
+}
+
+.staff-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 16px 32px rgba(91, 114, 181, 0.18);
+}
+
+.info-pair {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    padding-bottom: 6px;
+}
+
+.empty-box {
+    padding: 50px 20px;
+    border-radius: 18px;
+    background: rgba(255,255,255,0.85);
+    border: 1px dashed #d7deea;
+}
+
+.action-buttons {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.btn-icon {
+    width: 38px;
+    height: 38px;
+    padding: 0;
+    border-radius: 10px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.95rem;
+}
+
+.btn-view {
+    color: #6c757d;
+    border: 1px solid #d9dee8;
+    background: #fff;
+}
+
+.btn-view:hover {
+    color: #fff;
+    background: #6c757d;
+    border-color: #6c757d;
+}
+
+.btn-edit {
+    color: #0d6efd;
+    border: 1px solid #cfe0ff;
+    background: #fff;
+}
+
+.btn-edit:hover {
+    color: #fff;
+    background: #0d6efd;
+    border-color: #0d6efd;
+}
+
+/* CUSTOM POPUP */
+.staff-popup-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(14, 25, 44, 0.45);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    z-index: 2000;
+}
+
+.staff-popup-overlay.active {
+    display: flex;
+}
+
+.staff-popup-panel {
+    width: min(920px, 96vw);
+    height: min(92vh, 900px);
+    max-height: 92vh;
+    background: #f7fbff;
+    border-radius: 24px;
+    overflow: hidden;
+    box-shadow: 0 24px 60px rgba(37, 45, 89, 0.28);
+    display: flex;
+    flex-direction: column;
+    margin: 0 auto;
+}
+
+.staff-popup-panel form {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+}
+
+.staff-popup-header {
+    background: linear-gradient(135deg, var(--light-blue), var(--sky-blue));
+    border-bottom: 2px solid var(--yellow-gold);
+    padding: 1.2rem 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    color: var(--purple-dark);
+    flex-shrink: 0;
+}
+
+.staff-popup-close {
+    border: none;
+    background: transparent;
+    color: #52607a;
+    font-size: 1.6rem;
+    line-height: 1;
+    padding: 0;
+}
+
+.staff-popup-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 1.5rem 1.75rem;
+    background: #f7fbff;
+}
+
+.staff-popup-footer {
+    padding: 1rem 1.5rem;
+    border-top: 1px solid rgba(0,0,0,0.08);
+    background: #f7fbff;
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    flex-shrink: 0;
+}
+
+.form-section-inner {
+    max-width: 760px;
+    margin: 0 auto;
+}
+
+.form-block {
+    background: transparent;
+}
+
+.form-block-title {
+    color: var(--purple-dark);
+    font-weight: 800;
+    font-size: 1.35rem;
+    margin-bottom: 18px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #dbe4f0;
+}
+
+.soft-input {
+    border-radius: 999px;
+    min-height: 56px;
+    background: rgba(255,255,255,0.92);
+    border: 1px solid #e0e7f1;
+    padding-left: 1rem;
+    padding-right: 1rem;
+}
+
+/* OFFCANVAS */
+.custom-offcanvas {
+    width: 450px !important;
+    background: rgba(255,255,255,0.98);
+    backdrop-filter: blur(10px);
+}
+
+.custom-offcanvas-header {
+    border-bottom: 2px solid var(--yellow-gold);
+    background: linear-gradient(135deg, var(--light-blue), var(--sky-blue));
+    color: var(--purple-dark);
+}
+
+.custom-offcanvas-body {
+    padding: 20px;
+    overflow-y: auto;
+    height: calc(100vh - 140px);
+}
+
+.custom-offcanvas-footer {
+    padding: 16px;
+    border-top: 1px solid rgba(0,0,0,0.08);
+    background: #f8f9fb;
+}
+
+.section-header {
+    background: var(--light-blue);
+    color: var(--purple-dark);
+    font-weight: 700;
+}
+
+.badge {
+    padding: 8px 12px;
+    font-weight: 600;
+}
+
+@media (max-width: 1200px) {
+    .staff-filter-row {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+@media (max-width: 768px) {
+    .staff-title {
+        font-size: 1.8rem;
+    }
+
+    .staff-filter-row {
+        grid-template-columns: 1fr;
+    }
+
+    .staff-sort-form {
+        width: 100%;
+        justify-content: flex-start;
+        margin-left: 0;
+    }
+
+    .staff-sort-select {
+        min-width: 150px;
+    }
+
+    .custom-offcanvas {
+        width: 100% !important;
+    }
+
+    .staff-popup-overlay {
+        padding: 10px;
+    }
+
+    .staff-popup-panel {
+        width: 100%;
+        max-height: 94vh;
+        border-radius: 18px;
+    }
+
+    .staff-popup-body {
+        padding: 1rem;
+    }
+
+    .staff-popup-footer {
+        padding: 0.9rem 1rem;
+    }
+}
+</style>
+
+{% endblock %}

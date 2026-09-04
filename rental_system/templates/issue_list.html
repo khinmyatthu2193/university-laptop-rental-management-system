@@ -1,0 +1,253 @@
+{% extends "home.html" %}
+{% block content %}
+<div class="content-header mb-4 d-flex justify-content-between align-items-start flex-wrap gap-2">
+  <div>
+    <h1 class="page-title">Issue Management</h1>
+    <p class="page-subtitle">Track and resolve laptop issues in the same style as the rest of the system</p>
+  </div>
+  <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#reportIssueModal">
+    <i class="fas fa-plus"></i> Report Issue
+  </button>
+</div>
+
+<div class="cards-grid mb-4">
+  <div class="card">
+    <div class="card-title">Open Issues</div>
+    <div class="card-value">{{ active_issues_count }}</div>
+  </div>
+  <div class="card">
+    <div class="card-title">Repairing</div>
+    <div class="card-value">{{ repairing_count }}</div>
+  </div>
+</div>
+
+<div class="data-section">
+  <h2 class="section-title">Issue List</h2>
+  <div class="table-responsive">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Laptop</th>
+          <th>Issue Details</th>
+          <th>Status</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for issue in issues %}
+        <tr>
+          <td>{{ issue.repair_date }}</td>
+          <td>{{ issue.laptop.SerialNumber }} - {{ issue.laptop.brand }} {{ issue.laptop.name }}</td>
+          <td>{{ issue.issue_description }}</td>
+          <td>
+            {% if issue.repair_status == 'Pending' %}
+              <span class="badge bg-warning text-dark">Pending</span>
+            {% elif issue.repair_status == 'Repairing' %}
+              <span class="badge bg-primary">Repairing</span>
+            {% else %}
+              <span class="badge bg-success">Completed</span>
+            {% endif %}
+          </td>
+          <td class="d-flex gap-2 flex-wrap">
+            {% if issue.repair_status == 'Pending' %}
+            <form method="post" class="d-inline">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="repairing">
+              <input type="hidden" name="issue_id" value="{{ issue.id }}">
+              <button type="submit" class="btn btn-sm btn-outline-primary">Start Repair</button>
+            </form>
+            {% endif %}
+            {% if issue.repair_status != 'Completed' %}
+            <form method="post" class="d-inline">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="complete">
+              <input type="hidden" name="issue_id" value="{{ issue.id }}">
+              <button type="submit" class="btn btn-sm btn-success">Mark Complete</button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="5" class="text-center text-muted">No issues reported yet.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="modal fade issue-report-modal" id="reportIssueModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered issue-report-modal-dialog">
+    <div class="modal-content issue-report-modal-content">
+      <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="create">
+        <div class="modal-header issue-report-modal-header">
+          <h5 class="modal-title">Report Device Issue</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body issue-report-modal-body">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Laptop</label>
+              <select name="laptop_id" class="form-select" required>
+                <option value="">-- Select Laptop --</option>
+                {% for laptop in available_for_issue %}
+                <option value="{{ laptop.id }}">{{ laptop.SerialNumber }} - {{ laptop.brand }} {{ laptop.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Issue Type</label>
+              <select name="issue_type" class="form-select" required>
+                <option value="Battery">Battery Issue</option>
+                <option value="Keyboard">Keyboard Issue</option>
+                <option value="Screen">Screen / Display Issue</option>
+                <option value="Performance">Performance Issue</option>
+                <option value="Software">Software Issue</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Reported By</label>
+              <input type="text" name="reported_by" class="form-control" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Priority</label>
+              <select name="priority" class="form-select">
+                <option value="Low">Low</option>
+                <option value="Medium" selected>Medium</option>
+                <option value="High">High</option>
+              </select>
+            </div>
+            <div class="col-12">
+              <label class="form-label">Issue Description</label>
+              <textarea name="issue_description" class="form-control" rows="4" placeholder="Describe the issue in detail..." required></textarea>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer issue-report-modal-footer">
+          <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary">Submit Report</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<style>
+:root {
+    --light-blue: #cce3f3;
+    --sky-blue: #89adda;
+    --yellow-gold: #dde659;
+    --purple-dark: #362e90;
+}
+
+.issue-report-modal.modal {
+    background: transparent !important;
+    width: 100% !important;
+    max-width: none !important;
+    max-height: none !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    overflow: hidden !important;
+    box-shadow: none !important;
+}
+
+.issue-report-modal-dialog {
+    max-width: 980px;
+    margin: 1.75rem auto !important;
+}
+
+.issue-report-modal .modal-dialog-centered {
+    min-height: calc(100% - 3.5rem) !important;
+}
+
+.issue-report-modal-content {
+    border: 0;
+    border-radius: 24px;
+    overflow: hidden;
+    background: #f7fbff;
+    box-shadow: 0 24px 60px rgba(37, 45, 89, 0.28);
+}
+
+.issue-report-modal-header {
+    background: linear-gradient(135deg, var(--light-blue), var(--sky-blue));
+    border-bottom: 2px solid var(--yellow-gold);
+    color: var(--purple-dark);
+    padding: 1.15rem 1.5rem;
+}
+
+.issue-report-modal-body {
+    padding: 1.3rem 1.5rem 1.4rem;
+    max-height: 72vh;
+    overflow-y: auto;
+}
+
+.issue-report-modal-body .form-label {
+    font-weight: 700;
+    color: #3e557f;
+}
+
+.issue-report-modal-body .form-control,
+.issue-report-modal-body .form-select,
+.issue-report-modal-body textarea {
+    border-radius: 999px;
+    min-height: 52px;
+    border: 1px solid #e0e7f1;
+    background: rgba(255, 255, 255, 0.92);
+    padding-left: 1rem;
+    padding-right: 1rem;
+}
+
+.issue-report-modal-body textarea {
+    border-radius: 20px;
+    min-height: 120px;
+    padding-top: 0.85rem;
+    padding-bottom: 0.85rem;
+}
+
+.issue-report-modal-body .form-control:focus,
+.issue-report-modal-body .form-select:focus,
+.issue-report-modal-body textarea:focus {
+    border-color: var(--yellow-gold);
+    box-shadow: 0 0 0 0.18rem rgba(221, 230, 89, 0.25);
+}
+
+.issue-report-modal-footer {
+    border-top: 1px solid rgba(0, 0, 0, 0.08);
+    background: #f7fbff;
+    padding: 0.95rem 1.4rem 1.1rem;
+}
+
+.issue-report-modal-footer .btn {
+    border-radius: 999px;
+    min-height: 44px;
+    padding-left: 1rem;
+    padding-right: 1rem;
+    font-weight: 700;
+}
+
+.issue-report-modal-footer .btn-primary {
+    border: none;
+    background: linear-gradient(135deg, #5867d8, #362e90);
+}
+
+@media (max-width: 768px) {
+    .issue-report-modal-dialog {
+        margin: 0.6rem;
+    }
+
+    .issue-report-modal-content {
+        border-radius: 18px;
+    }
+
+    .issue-report-modal-body {
+        padding: 1rem;
+        max-height: 74vh;
+    }
+}
+</style>
+{% endblock %}

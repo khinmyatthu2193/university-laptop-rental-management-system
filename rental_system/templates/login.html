@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Login | MIIT Staff Portal</title>
+    <!-- Fonts and Icons -->
+    <link
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
+    <style>
+      :root {
+        --primary-navy: #1a237e;
+        --action-blue: #2196f3;
+        --accent-gold: #ffc107;
+        --white: #ffffff;
+        --gray-light: #f5f7fa;
+        --text-dark: #333;
+        --danger: #e74c3c;
+        --success: #2ecc71;
+      }
+
+      body {
+        margin: 0;
+        font-family: "Poppins", sans-serif;
+        background: var(--gray-light);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        color: var(--text-dark);
+      }
+
+      .main-card {
+        display: flex;
+        background: var(--white);
+        width: 100%;
+        max-width: 950px;
+        border-radius: 20px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+        min-height: 600px;
+        position: relative;
+      }
+
+      /* LEFT SIDE - UNIVERSITY BRANDING */
+      .brand-section {
+        flex: 1;
+        background: linear-gradient(135deg, var(--primary-navy), #283593);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        padding: 50px;
+        color: white;
+        position: relative;
+        overflow: hidden;
+      }
+
+      /* Decorative circle pattern */
+      .brand-section::before {
+        content: "";
+        position: absolute;
+        width: 400px;
+        height: 400px;
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 50%;
+        top: -100px;
+        left: -100px;
+      }
+
+      .brand-logo-placeholder {
+        width: 80px;
+        height: 80px;
+        background: rgba(255, 255, 255, 0.15);
+        backdrop-filter: blur(10px);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 2rem;
+        color: var(--accent-gold);
+        margin-bottom: 20px;
+        border: 2px solid rgba(255, 255, 255, 0.2);
+      }
+
+      .brand-title {
+        font-size: 2.2rem;
+        font-weight: 700;
+        margin-bottom: 5px;
+      }
+      .brand-subtitle {
+        color: var(--accent-gold);
+        letter-spacing: 2px;
+        text-transform: uppercase;
+        font-size: 0.85rem;
+        font-weight: 600;
+        margin-bottom: 25px;
+      }
+      .brand-desc {
+        opacity: 0.9;
+        line-height: 1.6;
+        font-size: 0.95rem;
+        max-width: 80%;
+      }
+
+      /* RIGHT SIDE - FORM */
+      .form-section {
+        flex: 1.2;
+        padding: 60px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        position: relative;
+      }
+
+      .header-text h2 {
+        color: var(--primary-navy);
+        margin: 0;
+        font-size: 2rem;
+        font-weight: 700;
+      }
+      .header-text p {
+        color: #777;
+        margin: 10px 0 30px 0;
+      }
+
+      .form-group {
+        margin-bottom: 24px;
+        position: relative;
+      }
+
+      label {
+        display: block;
+        font-weight: 600;
+        color: var(--text-dark);
+        margin-bottom: 8px;
+        font-size: 0.9rem;
+      }
+
+      .input-wrapper {
+        position: relative;
+      }
+
+      .input-wrapper i {
+        position: absolute;
+        left: 15px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #aaa;
+        transition: 0.3s;
+      }
+
+      input {
+        width: 100%;
+        padding: 14px 15px 14px 45px; /* Left padding for icon */
+        border: 2px solid #eee;
+        border-radius: 8px;
+        font-family: "Poppins", sans-serif;
+        font-size: 0.95rem;
+        transition: 0.3s;
+        box-sizing: border-box;
+        background: #fafafa;
+      }
+
+      input:focus {
+        border-color: var(--action-blue);
+        background: var(--white);
+        outline: none;
+        box-shadow: 0 0 0 4px rgba(33, 150, 243, 0.1);
+      }
+
+      input:focus + i {
+        color: var(--action-blue);
+      }
+
+      .forgot-password {
+        text-align: right;
+        margin-top: -10px;
+        margin-bottom: 25px;
+      }
+
+      .forgot-password a {
+        color: #777;
+        text-decoration: none;
+        font-size: 0.85rem;
+        transition: 0.3s;
+      }
+
+      .forgot-password a:hover {
+        color: var(--action-blue);
+        text-decoration: underline;
+      }
+
+      .btn-login {
+        width: 100%;
+        padding: 16px;
+        background: var(--primary-navy);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: 0.3s;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        box-shadow: 0 5px 15px rgba(26, 35, 126, 0.2);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+      }
+
+      .btn-login:hover {
+        background: #151b60;
+        transform: translateY(-2px);
+        box-shadow: 0 10px 25px rgba(26, 35, 126, 0.3);
+      }
+
+      .btn-login:active {
+        transform: translateY(0);
+      }
+
+      /* Error Box Styling - Added ID for JS */
+      .error-box {
+        background: #ffebee;
+        color: var(--danger);
+        padding: 12px 15px;
+        border-radius: 8px;
+        margin-bottom: 25px;
+        border-left: 4px solid var(--danger);
+        font-size: 0.9rem;
+        display: none; /* Hidden by default */
+        align-items: center;
+        gap: 12px;
+        animation: slideDown 0.3s ease-out;
+      }
+
+      .error-box i {
+        font-size: 1.1rem;
+      }
+
+      /* Success Toast */
+      .toast {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        background: white;
+        padding: 15px 25px;
+        border-radius: 8px;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+        border-left: 5px solid var(--success);
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        transform: translateX(150%);
+        transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        z-index: 100;
+      }
+
+      .toast.active {
+        transform: translateX(0);
+      }
+
+      .toast i {
+        color: var(--success);
+        font-size: 1.5rem;
+      }
+
+      /* Modal for Forgot Password */
+      .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 0;
+        pointer-events: none;
+        transition: 0.3s;
+        z-index: 1000;
+        backdrop-filter: blur(3px);
+      }
+
+      .modal-overlay.open {
+        opacity: 1;
+        pointer-events: all;
+      }
+
+      .modal {
+        background: white;
+        width: 90%;
+        max-width: 400px;
+        padding: 30px;
+        border-radius: 15px;
+        text-align: center;
+        transform: translateY(20px);
+        transition: 0.3s;
+      }
+
+      .modal-overlay.open .modal {
+        transform: translateY(0);
+      }
+
+      .modal h3 {
+        color: var(--primary-navy);
+        margin-top: 0;
+      }
+
+      .modal-btn {
+        background: var(--action-blue);
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 5px;
+        cursor: pointer;
+        margin-top: 15px;
+        font-family: inherit;
+        transition: 0.3s;
+      }
+
+      .modal-btn:hover {
+        background: #1976d2;
+      }
+
+      .modal-btn.secondary {
+        background: #ddd;
+        color: #555;
+        margin-right: 10px;
+      }
+
+      .modal-btn.secondary:hover {
+        background: #ccc;
+      }
+
+      @keyframes slideDown {
+        from {
+          opacity: 0;
+          transform: translateY(-10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      @media (max-width: 768px) {
+        .main-card {
+          flex-direction: column;
+          margin: 20px;
+          min-height: auto;
+        }
+        .brand-section {
+          padding: 40px 20px;
+        }
+        .form-section {
+          padding: 40px 25px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="main-card">
+      <!-- LEFT SIDE -->
+      <div class="brand-section">
+        <div class="brand-logo-placeholder">
+          <i class="fas fa-graduation-cap"></i>
+        </div>
+        <h2 class="brand-title">MIIT University</h2>
+        <p class="brand-subtitle">Staff Portal</p>
+        <p class="brand-desc">
+          Please log in with your university credentials to access the
+          Dashboard.
+        </p>
+      </div>
+
+      <!-- RIGHT SIDE -->
+      <div class="form-section">
+        <div class="header-text">
+          <h2>Staff Login</h2>
+          <p>Enter your Outlook mail and Password</p>
+        </div>
+
+        <!-- CORRECTED: Added ID="error-box" so JS can find it -->
+        <div class="error-box" id="error-box">
+          <i class="fas fa-exclamation-circle"></i>
+          <span id="error-message">Invalid outlook mail or password.</span>
+        </div>
+
+        <!-- CORRECTED: Added action and method for Django -->
+        <form
+          id="loginForm"
+          action="{% url 'rental_system:login' %}"
+          method="POST"
+        >
+          {% csrf_token %}
+
+          <div class="form-group">
+            <label for="id_username">Name</label>
+            <div class="input-wrapper">
+              <input
+                type="email"
+                name="email"
+                id="id_email"
+                placeholder="staff@miit.edu.mm"
+                required
+                autofocus
+                autocomplete="email"
+              />
+              <i class="fas fa-envelope"></i>
+            </div>
+            <small
+              style="
+                color: #777;
+                font-size: 0.75rem;
+                margin-top: 5px;
+                display: block;
+              "
+            >
+              Use your MIIT Outlook email address (e.g., name@miit.edu.mm)
+            </small>
+          </div>
+
+          <div class="form-group">
+            <label for="id_password">Password</label>
+            <div class="input-wrapper">
+              <input
+                type="password"
+                name="password"
+                id="id_password"
+                placeholder="Enter your password"
+                required
+                autocomplete="current-password"
+              />
+              <i class="fas fa-lock"></i>
+            </div>
+          </div>
+
+          <div class="forgot-password">
+            <!-- CORRECTED: Added Django URL for password reset -->
+            <a href="#" id="forgotBtn">Forgot Password?</a>
+          </div>
+
+          <button type="submit" class="btn-login">
+            Log In <i class="fas fa-arrow-right"></i>
+          </button>
+        </form>
+      </div>
+
+      <!-- Success Toast -->
+      <div class="toast" id="successToast">
+        <i class="fas fa-check-circle"></i>
+        <div>
+          <strong>Success</strong>
+          <p style="margin: 0; font-size: 0.9rem; color: #555">
+            Redirecting to dashboard...
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Custom Modal for Forgot Password -->
+    <div class="modal-overlay" id="forgotModal">
+      <div class="modal">
+        <i
+          class="fas fa-key"
+          style="
+            font-size: 3rem;
+            color: var(--accent-gold);
+            margin-bottom: 15px;
+          "
+        ></i>
+        <h3>Reset Password</h3>
+        <p style="color: #666; margin-bottom: 20px">
+          Enter your university email address and we'll send you a link to reset
+          your password.
+        </p>
+        <div
+          class="input-wrapper"
+          style="text-align: left; margin-bottom: 20px"
+        >
+          <input
+            type="email"
+            id="resetEmail"
+            placeholder="name@miit.edu.mm"
+            style="padding-left: 15px"
+            autocomplete="email"
+          />
+        </div>
+        <button class="modal-btn" id="sendLinkBtn">Send Link</button>
+        <button class="modal-btn secondary" onclick="closeModal()">
+          Cancel
+        </button>
+      </div>
+    </div>
+
+    <script>
+      // DOM Elements
+      const loginForm = document.getElementById("loginForm");
+      const errorBox = document.getElementById("error-box");
+      const errorMessage = document.getElementById("error-message");
+      const successToast = document.getElementById("successToast");
+      const forgotBtn = document.getElementById("forgotBtn");
+      const modal = document.getElementById("forgotModal");
+      const resetEmail = document.getElementById("resetEmail");
+      const sendLinkBtn = document.getElementById("sendLinkBtn");
+      const csrftoken = document.querySelector(
+        "[name=csrfmiddlewaretoken]"
+      ).value;
+
+      // ============================================
+      // FORGOT PASSWORD MODAL
+      // ============================================
+
+      forgotBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+        modal.classList.add("open");
+        resetEmail.focus();
+      });
+
+      function closeModal() {
+        modal.classList.remove("open");
+        resetEmail.value = "";
+        sendLinkBtn.innerText = "Send Link";
+        sendLinkBtn.disabled = false;
+        sendLinkBtn.style.backgroundColor = "";
+      }
+
+      modal.addEventListener("click", (e) => {
+        if (e.target === modal) {
+          closeModal();
+        }
+      });
+
+      sendLinkBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+
+        if (!resetEmail.value || !resetEmail.value.includes("@")) {
+          alert("Please enter your email.");
+          return;
+        }
+
+        const originalText = sendLinkBtn.innerText;
+        sendLinkBtn.innerText = "Sending...";
+        sendLinkBtn.disabled = true;
+
+        setTimeout(() => {
+          sendLinkBtn.innerText = "Link Sent!";
+          sendLinkBtn.style.backgroundColor = "#2ecc71";
+
+          setTimeout(() => {
+            closeModal();
+          }, 1000);
+        }, 1500);
+      });
+
+      // ============================================
+      // LOGIN FORM - FIXED VERSION
+      // ============================================
+
+      loginForm.addEventListener("submit", handleLogin);
+
+      function handleLogin(e) {
+        e.preventDefault();
+
+        const email = document.getElementById("id_email").value;
+        const password = document.getElementById("id_password").value;
+        const btn = loginForm.querySelector("button[type=submit]");
+        const originalBtnText = btn.innerHTML;
+
+        // Validation
+        if (!email || !password) {
+          errorMessage.innerText =
+            "Please enter both Outlook mail and Password.";
+          errorBox.style.display = "flex";
+
+          // Shake effect
+          document
+            .querySelector(".form-section")
+            .animate(
+              [
+                { transform: "translateX(0)" },
+                { transform: "translateX(-5px)" },
+                { transform: "translateX(5px)" },
+                { transform: "translateX(0)" },
+              ],
+              { duration: 300 }
+            );
+          return;
+        }
+
+        // Validate MIIT email format
+        if (!email.endsWith("@miit.edu.mm")) {
+          errorMessage.innerText =
+            "Please use a valid MIIT Outlook email (@miit.edu.mm).";
+          errorBox.style.display = "flex";
+          return;
+        }
+
+        // Hide errors before trying
+        errorBox.style.display = "none";
+
+        // Loading state
+        btn.innerHTML =
+          '<i class="fas fa-spinner fa-spin"></i> Authenticating...';
+        btn.disabled = true;
+
+        // ========================================
+        // FETCH API - Django POST
+        // ========================================
+        fetch("{% url 'rental_system:login' %}", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+            "X-CSRFToken": csrftoken,
+            "X-Requested-With": "XMLHttpRequest",
+          },
+          body: new URLSearchParams({
+            email: email,
+            password: password,
+            csrfmiddlewaretoken: csrftoken,
+          }),
+        })
+          .then((response) => {
+            if (!response.ok) {
+              throw new Error("Network response was not ok");
+            }
+            return response.json();
+          })
+          .then((data) => {
+            btn.innerHTML = originalBtnText;
+            btn.disabled = false;
+
+            if (data.success) {
+              successToast.classList.add("active");
+
+              setTimeout(() => {
+                window.location.href = data.redirect_url;
+              }, 1500);
+            } else {
+              errorMessage.innerText =
+                data.error || "Invalid outlook mail or password.";
+              errorBox.style.display = "flex";
+
+              // Shake effect
+              document
+                .querySelector(".form-section")
+                .animate(
+                  [
+                    { transform: "translateX(0)" },
+                    { transform: "translateX(-5px)" },
+                    { transform: "translateX(5px)" },
+                    { transform: "translateX(0)" },
+                  ],
+                  { duration: 300 }
+                );
+            }
+          })
+          .catch((error) => {
+            console.error("Error:", error);
+            btn.innerHTML = originalBtnText;
+            btn.disabled = false;
+
+            errorMessage.innerText =
+              "Connection error. Please check your network and try again.";
+            errorBox.style.display = "flex";
+          });
+      }
+    </script>
+  </body>
+</html>

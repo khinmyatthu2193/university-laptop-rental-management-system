@@ -1,0 +1,326 @@
+{% extends 'home.html' %}
+{% block title %}Assign New Admin - UniKit{% endblock %}
+{% block content %}
+<div class="content-header">
+  <div>
+    <h1 class="page-title">Assign New Admin</h1>
+    <p class="page-subtitle">
+      Create new staff accounts and assign administrative privileges
+    </p>
+  </div>
+  <div class="action-buttons">
+    <button class="btn btn-outline" onclick="window.history.back()">
+      <i class="fas fa-arrow-left"></i> Back
+    </button>
+  </div>
+</div>
+
+<div class="row">
+  <div class="col-md-12">
+    <div class="data-section">
+      <h2 class="section-title" style="margin-bottom: 30px">
+        <i class="fas fa-user-shield"></i> Account Information
+      </h2>
+
+      <!-- Display Django messages -->
+      {% if messages %}
+        {% for message in messages %}
+          <div class="alert alert-{% if message.tags == 'error' %}danger{% elif message.tags == 'success' %}success{% else %}info{% endif %}" style="padding: 12px 16px; border-radius: 10px; margin-bottom: 20px; {% if message.tags == 'error' %}background: #fee2e2; color: #c62828; border-left: 4px solid #c62828;{% elif message.tags == 'success' %}background: #e8f5e9; color: #2e7d32; border-left: 4px solid #2e7d32;{% else %}background: #e3f2fd; color: #1565c0; border-left: 4px solid #1565c0;{% endif %}">
+            <i class="fas {% if message.tags == 'error' %}fa-exclamation-circle{% elif message.tags == 'success' %}fa-check-circle{% else %}fa-info-circle{% endif %}"></i>
+            {{ message }}
+          </div>
+        {% endfor %}
+      {% endif %}
+
+      <form method="post" action="{% url 'rental_system:assign_new_admin' %}" id="adminForm">
+        {% csrf_token %}
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">
+              <i class="fas fa-user"></i> Full Name <span style="color: var(--danger);">*</span>
+            </label>
+            <input
+              type="text"
+              class="form-control"
+              name="name"
+              value="{{ form_data.name|default:'' }}"
+              placeholder="e.g., Aung Aung"
+              required
+            />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">
+              <i class="fas fa-at"></i> Username <span style="color: var(--danger);">*</span>
+            </label>
+            <input
+              type="text"
+              class="form-control"
+              name="username"
+              value="{{ form_data.username|default:'' }}"
+              placeholder="e.g., @aungaung289"
+              required
+            />
+            <small style="color: var(--text-muted); font-size: 11px;">This will be used to login</small>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">
+              <i class="fas fa-envelope"></i> Outlook Mail <span style="color: var(--danger);">*</span>
+            </label>
+            <input
+              type="email"
+              class="form-control"
+              name="email"
+              id="email"
+              value="{{ form_data.email|default:'' }}"
+              placeholder="staff@miit.edu.mm"
+              required
+            />
+            <small style="color: var(--text-muted); font-size: 11px;">
+              <i class="fas fa-info-circle"></i> Only MIIT email addresses (@miit.edu.mm) are allowed
+            </small>
+            <div id="emailError" style="color: #e74c3c; font-size: 11px; margin-top: 5px; display: none;">
+              <i class="fas fa-exclamation-circle"></i> Please use a valid MIIT email address ending with @miit.edu.mm
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">
+              <i class="fas fa-phone-alt"></i> Phone Number
+            </label>
+            <input
+              type="tel"
+              class="form-control"
+              name="phone"
+              value="{{ form_data.phone|default:'' }}"
+              placeholder="09-XXXXXXXXX"
+              pattern="[0-9\-+]{9,15}"
+            />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">
+              <i class="fas fa-briefcase"></i> Position <span style="color: var(--danger);">*</span>
+            </label>
+            <select class="form-control" name="position" required>
+              <option value="">Select Position</option>
+              <option value="Lecturer" {% if form_data.position == 'Lecturer' %}selected{% endif %}>Lecturer</option>
+              <option value="Assistant Lecturer" {% if form_data.position == 'Assistant Lecturer' %}selected{% endif %}>Assistant Lecturer</option>
+              <option value="Tutor" {% if form_data.position == 'Tutor' %}selected{% endif %}>Tutor</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">
+              <i class="fas fa-building"></i> Department <span style="color: var(--danger);">*</span>
+            </label>
+            <select class="form-control" name="department" required>
+              <option value="">Select Department</option>
+              <option value="ITSM" {% if form_data.department == 'ITSM' %}selected{% endif %}>ITSM</option>
+
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">
+              <i class="fas fa-lock"></i> Password <span style="color: var(--danger);">*</span>
+            </label>
+            <input
+              type="password"
+              class="form-control"
+              name="password"
+              placeholder="Create secure password"
+              required
+            />
+            <small style="color: var(--text-muted); font-size: 11px;">Minimum 6 characters</small>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">
+              <i class="fas fa-check-double"></i> Confirm Password <span style="color: var(--danger);">*</span>
+            </label>
+            <input
+              type="password"
+              class="form-control"
+              name="confirm_password"
+              placeholder="Repeat password"
+              required
+            />
+          </div>
+        </div>
+
+        <div style="margin: 20px 0; display: flex; align-items: center; gap: 12px;">
+          <input 
+            type="checkbox" 
+            name="send_notification" 
+            id="sendEmailCheck" 
+            value="yes"
+            {% if form_data.send_notification %}checked{% endif %}
+            style="width: 18px; height: 18px; cursor: pointer;"
+          >
+          <label for="sendEmailCheck" style="margin: 0; cursor: pointer; font-weight: 500;">
+            <i class="fas fa-envelope-open-text"></i> Send login credentials via email to the new user
+          </label>
+        </div>
+
+        <div style="display: flex; gap: 10px; margin-top: 30px">
+          <button type="submit" class="btn btn-primary">
+            <i class="fas fa-user-plus"></i> Create Account
+          </button>
+          <button type="reset" class="btn btn-outline" onclick="resetForm()">
+            <i class="fas fa-undo"></i> Clear Form
+          </button>
+        </div>
+      </form>
+
+      <hr style="margin: 30px 0 20px; border-color: var(--border-light);">
+
+      <div style="background: rgba(33, 150, 243, 0.05); border-radius: 12px; padding: 16px;">
+        <p style="margin: 0; font-size: 13px; color: var(--text-muted);">
+          <i class="fas fa-info-circle" style="color: var(--action-blue);"></i> 
+          <strong>Note:</strong> All new accounts are created with "Active" status by default. 
+          Users will be able to log in immediately after account creation. 
+          Make sure to provide accurate MIIT email addresses (@miit.edu.mm) for password recovery and notifications.
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  /* Additional inline styles to match profile_settings */
+  .alert {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .alert i {
+    font-size: 1.1rem;
+  }
+  .form-group small {
+    display: block;
+    margin-top: 5px;
+  }
+  hr {
+    border: none;
+    border-top: 1px solid var(--border-light);
+  }
+  
+  /* Highlight input when invalid */
+  .form-control.invalid {
+    border-color: #e74c3c;
+    background-color: #fff5f5;
+  }
+</style>
+
+<script>
+  // Function to validate MIIT email
+  function validateMIITEmail(email) {
+    if (!email) return false;
+    email = email.trim().toLowerCase();
+    return email.endsWith('@miit.edu.mm') && email.length > '@miit.edu.mm'.length;
+  }
+  
+  // Real-time email validation
+  const emailInput = document.querySelector('input[name="email"]');
+  const emailErrorDiv = document.getElementById('emailError');
+  
+  if (emailInput) {
+    // Validate on input (as user types)
+    emailInput.addEventListener('input', function() {
+      const email = this.value;
+      if (email && !validateMIITEmail(email)) {
+        emailErrorDiv.style.display = 'block';
+        this.classList.add('invalid');
+      } else {
+        emailErrorDiv.style.display = 'none';
+        this.classList.remove('invalid');
+      }
+    });
+    
+    // Validate on blur (when user leaves the field)
+    emailInput.addEventListener('blur', function() {
+      const email = this.value;
+      if (email && !validateMIITEmail(email)) {
+        emailErrorDiv.style.display = 'block';
+        this.classList.add('invalid');
+      } else {
+        emailErrorDiv.style.display = 'none';
+        this.classList.remove('invalid');
+      }
+    });
+  }
+  
+  // Client-side validation for form submission
+  document.getElementById('adminForm').addEventListener('submit', function(e) {
+    const password = document.querySelector('input[name="password"]');
+    const confirm = document.querySelector('input[name="confirm_password"]');
+    const username = document.querySelector('input[name="username"]');
+    const email = document.querySelector('input[name="email"]');
+    
+    // Validate email format (must be @miit.edu.mm)
+    if (email.value.trim() && !validateMIITEmail(email.value)) {
+      e.preventDefault();
+      alert('❌ Please use a valid MIIT email address ending with @miit.edu.mm');
+      email.focus();
+      return false;
+    }
+    
+    // Validate password match
+    if (password.value !== confirm.value) {
+      e.preventDefault();
+      alert('❌ Passwords do not match. Please re-enter.');
+      confirm.focus();
+      return false;
+    }
+    
+    // Validate password length
+    if (password.value.length < 6) {
+      e.preventDefault();
+      alert('⚠️ Password must be at least 6 characters long.');
+      password.focus();
+      return false;
+    }
+    
+    // Validate username length
+    if (username.value.trim().length < 3) {
+      e.preventDefault();
+      alert('⚠️ Username must be at least 3 characters.');
+      username.focus();
+      return false;
+    }
+    
+    // Validate email is not empty
+    if (!email.value.trim()) {
+      e.preventDefault();
+      alert('⚠️ Please enter an email address.');
+      email.focus();
+      return false;
+    }
+    
+    return true;
+  });
+  
+  // Reset form function
+  function resetForm() {
+    if (confirm('Clear all form fields?')) {
+      document.querySelector('form').reset();
+      // Clear any error messages
+      if (emailErrorDiv) {
+        emailErrorDiv.style.display = 'none';
+      }
+      if (emailInput) {
+        emailInput.classList.remove('invalid');
+      }
+    }
+  }
+</script>
+{% endblock %}

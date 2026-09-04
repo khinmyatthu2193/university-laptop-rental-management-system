@@ -1,0 +1,381 @@
+{% extends 'home.html' %}
+{% block title %}Audit Logs - UniKit{% endblock %}
+{% block content %}
+
+<style>
+    /* Description column style */
+    .description-cell {
+        max-width: 300px;
+        white-space: normal;
+        word-wrap: break-word;
+    }
+    
+    /* Tooltip style - FIXED VERSION */
+    .description-tooltip {
+        position: relative;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        width: 100%;
+    }
+    
+    .description-text {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 250px;
+        color: var(--text-secondary);
+    }
+    
+    /* Custom tooltip on hover */
+    .description-tooltip:hover .tooltip-content {
+        display: block;
+    }
+    
+    .tooltip-content {
+        display: none;
+        position: absolute;
+        left: 0;
+        bottom: 100%;
+        background: var(--purple-dark);
+        color: white;
+        padding: 10px 15px;
+        border-radius: 8px;
+        font-size: 0.9rem;
+        white-space: normal;
+        max-width: 400px;
+        width: max-content;
+        min-width: 200px;
+        z-index: 9999;
+        box-shadow: 0 4px 15px rgba(54, 46, 144, 0.3);
+        margin-bottom: 8px;
+        border: 1px solid var(--yellow-gold);
+        line-height: 1.5;
+        word-break: break-word;
+    }
+    
+    /* Tooltip arrow */
+    .tooltip-content::after {
+        content: '';
+        position: absolute;
+        top: 100%;
+        left: 20px;
+        border-width: 8px;
+        border-style: solid;
+        border-color: var(--purple-dark) transparent transparent transparent;
+    }
+    
+    /* Info icon style */
+    .info-icon {
+        color: var(--blue);
+        font-size: 0.9rem;
+        transition: all 0.3s ease;
+        flex-shrink: 0;
+    }
+    
+    .info-icon:hover {
+        color: var(--purple-dark);
+        transform: scale(1.1);
+    }
+    
+    /* Filter active style */
+    .filter-active {
+        background: var(--blue) !important;
+        color: white !important;
+        border-color: var(--blue) !important;
+    }
+    
+    /* No logs message */
+    .no-logs {
+        text-align: center;
+        padding: 60px 20px;
+        color: var(--text-muted);
+    }
+    
+    .no-logs i {
+        font-size: 4rem;
+        margin-bottom: 20px;
+        opacity: 0.5;
+    }
+    
+    /* Badge secondary */
+    .badge-secondary {
+        background: rgba(108, 117, 125, 0.2);
+        color: #6c757d;
+        border: 1px solid #6c757d;
+    }
+    
+    /* Table link styles */
+    .data-table th a {
+        color: var(--purple-dark);
+        text-decoration: none;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+    
+    .data-table th a:hover {
+        color: var(--blue);
+    }
+    
+    /* Responsive */
+    @media (max-width: 768px) {
+        .description-cell {
+            max-width: 150px;
+        }
+        .description-text {
+            max-width: 100px;
+        }
+        .tooltip-content {
+            max-width: 250px;
+            left: -50px;
+        }
+    }
+</style>
+
+<div class="content-header">
+    <div>
+        <h1 class="page-title">Audit Logs</h1>
+        <p class="page-subtitle">System activity and change history</p>
+    </div>
+    <div class="action-buttons">
+        <button class="btn btn-outline" onclick="window.location.reload()">
+            <i class="fas fa-sync-alt"></i> Refresh
+        </button>
+        <button class="btn btn-outline" onclick="clearFilters()" id="clearFiltersBtn" style="display: none;">
+            <i class="fas fa-times"></i> Clear Filters
+        </button>
+    </div>
+</div>
+
+<div class="data-section">
+    <div class="section-header">
+        <h2 class="section-title">Recent Activity</h2>
+        <div class="section-actions" style="display: flex; gap: 10px; align-items: center;">
+            <!-- Table Filter -->
+            <select class="form-control" style="width: 150px;" id="tableFilter">
+                <option value="">All Tables</option>
+                {% for table in tables %}
+                <option value="{{ table }}" {% if request.GET.table == table %}selected{% endif %}>{{ table }}</option>
+                {% endfor %}
+            </select>
+            
+            <!-- Action Filter -->
+            <select class="form-control" style="width: 150px;" id="actionFilter">
+                <option value="">All Actions</option>
+                <option value="Insert" {% if request.GET.action == 'Insert' %}selected{% endif %}>Insert</option>
+                <option value="Update" {% if request.GET.action == 'Update' %}selected{% endif %}>Update</option>
+                <option value="Delete" {% if request.GET.action == 'Delete' %}selected{% endif %}>Delete</option>
+                <option value="Create" {% if request.GET.action == 'Create' %}selected{% endif %}>Create</option>
+            </select>
+            
+            <!-- Staff Filter -->
+            <select class="form-control" style="width: 200px;" id="staffFilter">
+                <option value="">All Staff</option>
+                {% for staff_member in staff_list %}
+                <option value="{{ staff_member.id }}" {% if request.GET.staff == staff_member.id|stringformat:"s" %}selected{% endif %}>
+                    {{ staff_member.name }}
+                </option>
+                {% endfor %}
+            </select>
+            
+            <!-- Search Box -->
+            <input type="text" class="form-control" style="width: 200px;" 
+                   id="searchInput" placeholder="Search description..." 
+                   value="{{ request.GET.search|default:'' }}">
+            
+            <button class="btn btn-primary" onclick="applyFilters()">
+                <i class="fas fa-filter"></i> Apply
+            </button>
+        </div>
+    </div>
+
+    <div class="table-responsive">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>
+                        <a href="?{% if request.GET %}{{ request.GET.urlencode }}&{% endif %}sort=time&order={% if request.GET.sort == 'time' and request.GET.order == 'desc' %}asc{% else %}desc{% endif %}">
+                            Time 
+                            {% if request.GET.sort == 'time' %}
+                                <i class="fas fa-sort-{% if request.GET.order == 'desc' %}down{% else %}up{% endif %}"></i>
+                            {% endif %}
+                        </a>
+                    </th>
+                    <th>
+                        <a href="?{% if request.GET %}{{ request.GET.urlencode }}&{% endif %}sort=staff&order={% if request.GET.sort == 'staff' and request.GET.order == 'desc' %}asc{% else %}desc{% endif %}">
+                            Staff
+                            {% if request.GET.sort == 'staff' %}
+                                <i class="fas fa-sort-{% if request.GET.order == 'desc' %}down{% else %}up{% endif %}"></i>
+                            {% endif %}
+                        </a>
+                    </th>
+                    <th>Action</th>
+                    <th>Table</th>
+                    <th>Record ID</th>
+                    <th>Description</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for log in logs %}
+                <tr>
+                    <td>{{ log.action_time|date:"Y-m-d H:i:s" }}</td>
+                    <td>
+                        <div class="user-info">
+                            <span class="user-name">{{ log.staff.name }}</span>
+                            <span class="user-type">{{ log.staff.position }}</span>
+                        </div>
+                    </td>
+                    <td>
+                        <span class="badge 
+                            {% if log.action_type == 'Insert' %}badge-success
+                            {% elif log.action_type == 'Update' %}badge-info
+                            {% elif log.action_type == 'Delete' %}badge-danger
+                            {% elif log.action_type == 'Create' %}badge-success
+                            {% endif %}">
+                            {{ log.action_type }}
+                        </span>
+                    </td>
+                    <td>
+                        <span class="badge badge-secondary">{{ log.target_table }}</span>
+                    </td>
+                    <td>{{ log.record_id }}</td>
+                    <td class="description-cell">
+                        <div class="description-tooltip">
+                            <span class="description-text">{{ log.description|truncatechars:50 }}</span>
+                            {% if log.description|length > 50 %}
+                                <i class="fas fa-info-circle info-icon"></i>
+                            {% endif %}
+                            <!-- Tooltip content -->
+                            <div class="tooltip-content">
+                                <strong>Full Description:</strong><br>
+                                {{ log.description }}
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" class="no-logs">
+                        <i class="fas fa-history"></i>
+                        <h3>No audit logs found</h3>
+                        <p>There are no audit logs matching your criteria.</p>
+                        {% if request.GET %}
+                        <button class="btn btn-outline" onclick="clearFilters()">
+                            <i class="fas fa-times"></i> Clear Filters
+                        </button>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+    <!-- Pagination -->
+    {% if logs.paginator.num_pages > 1 %}
+    <div class="pagination" style="display: flex; justify-content: center; margin-top: 30px; gap: 5px;">
+        {% if logs.has_previous %}
+        <a href="?{% if request.GET %}{{ request.GET.urlencode }}&{% endif %}page=1" class="btn btn-sm btn-outline">&laquo; First</a>
+        <a href="?{% if request.GET %}{{ request.GET.urlencode }}&{% endif %}page={{ logs.previous_page_number }}" class="btn btn-sm btn-outline">Previous</a>
+        {% endif %}
+        
+        <span class="btn btn-sm btn-primary" style="cursor: default;">
+            Page {{ logs.number }} of {{ logs.paginator.num_pages }}
+        </span>
+        
+        {% if logs.has_next %}
+        <a href="?{% if request.GET %}{{ request.GET.urlencode }}&{% endif %}page={{ logs.next_page_number }}" class="btn btn-sm btn-outline">Next</a>
+        <a href="?{% if request.GET %}{{ request.GET.urlencode }}&{% endif %}page={{ logs.paginator.num_pages }}" class="btn btn-sm btn-outline">Last &raquo;</a>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+
+<script>
+    // Apply filters function
+    function applyFilters() {
+        let params = new URLSearchParams(window.location.search);
+        
+        // Get filter values
+        const tableFilter = document.getElementById('tableFilter').value;
+        const actionFilter = document.getElementById('actionFilter').value;
+        const staffFilter = document.getElementById('staffFilter').value;
+        const searchInput = document.getElementById('searchInput').value;
+        
+        // Set or remove parameters
+        if (tableFilter) {
+            params.set('table', tableFilter);
+        } else {
+            params.delete('table');
+        }
+        
+        if (actionFilter) {
+            params.set('action', actionFilter);
+        } else {
+            params.delete('action');
+        }
+        
+        if (staffFilter) {
+            params.set('staff', staffFilter);
+        } else {
+            params.delete('staff');
+        }
+        
+        if (searchInput) {
+            params.set('search', searchInput);
+        } else {
+            params.delete('search');
+        }
+        
+        // Reset to page 1
+        params.delete('page');
+        
+        // Redirect with new filters
+        window.location.href = window.location.pathname + '?' + params.toString();
+    }
+    
+    // Clear filters function
+    function clearFilters() {
+        window.location.href = window.location.pathname;
+    }
+    
+    // Show/hide clear filters button
+    document.addEventListener('DOMContentLoaded', function() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const clearBtn = document.getElementById('clearFiltersBtn');
+        
+        if (urlParams.toString()) {
+            clearBtn.style.display = 'inline-flex';
+        }
+        
+        // Enter key in search input
+        const searchInput = document.getElementById('searchInput');
+        if (searchInput) {
+            searchInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    applyFilters();
+                }
+            });
+        }
+        
+        // Add touch support for mobile
+        const tooltips = document.querySelectorAll('.description-tooltip');
+        tooltips.forEach(tooltip => {
+            tooltip.addEventListener('touchstart', function(e) {
+                e.preventDefault();
+                // Hide other tooltips
+                tooltips.forEach(t => {
+                    if (t !== tooltip) {
+                        t.classList.remove('active');
+                    }
+                });
+                // Toggle current tooltip
+                this.classList.toggle('active');
+            });
+        });
+    });
+</script>
+
+{% endblock %}

@@ -1,0 +1,433 @@
+{% extends "home.html" %} {% load static %} {% block content %}
+<!-- Main Content -->
+<main class="main-content">
+  <!-- Dashboard Tab -->
+  <div class="content-tabs active" id="dashboard">
+    <div class="content-header">
+      <div>
+        <h1 class="page-title">Dashboard</h1>
+        <p class="page-subtitle">
+          Welcome back, <strong>{{ user.name|default:"Admin" }}</strong>! Here's
+          what's happening with your laptop rentals today.
+        </p>
+      </div>
+      <div class="action-buttons">
+        <button class="btn btn-primary" id="quickAssign">
+          <i class="fas fa-plus"></i> Quick Assign
+        </button>
+        <button class="btn btn-outline" onclick="exportData()">
+          <i class="fas fa-download"></i> Export
+        </button>
+      </div>
+    </div>
+
+    <!-- Stats Cards with Django Data -->
+    <div class="cards-grid">
+      <!-- Total Laptops Card -->
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">Total Laptops</div>
+            <div class="card-value" id="totalLaptops">{{ total_laptops }}</div>
+          </div>
+          <div class="card-icon card-icon-1">
+            <i class="fas fa-laptop"></i>
+          </div>
+        </div>
+        <div class="progress-bar-bg">
+          <div class="progress-fill" style="width: 100%"></div>
+        </div>
+      </div>
+
+      <!-- Available Now Card -->
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">Available Now</div>
+            <div class="card-value" id="availableLaptops">
+              {{ available_laptops }}
+            </div>
+          </div>
+          <div class="card-icon card-icon-2">
+            <i class="fas fa-check-circle"></i>
+          </div>
+        </div>
+        <div class="progress-bar-bg">
+          {% if total_laptops > 0 %}
+          <div
+            class="progress-fill"
+            style="width: {% widthratio available_laptops total_laptops 100 %}%"
+          ></div>
+          {% else %}
+          <div class="progress-fill" style="width: 0%"></div>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Under Repair Card -->
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">Under Repair</div>
+            <div class="card-value" id="repairLaptops">
+              {{ repair_laptops }}
+            </div>
+          </div>
+          <div class="card-icon card-icon-3">
+            <i class="fas fa-tools"></i>
+          </div>
+        </div>
+        <div class="progress-bar-bg">
+          {% if total_laptops > 0 %}
+          <div
+            class="progress-fill"
+            style="width: {% widthratio repair_laptops total_laptops 100 %}%"
+          ></div>
+          {% else %}
+          <div class="progress-fill" style="width: 0%"></div>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Active Rentals Card -->
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">Active Rentals</div>
+            <div class="card-value" id="activeRentals">
+              {{ assigned_laptops }}
+            </div>
+          </div>
+          <div class="card-icon card-icon-4">
+            <i class="fas fa-exchange-alt"></i>
+          </div>
+        </div>
+        <div class="progress-bar-bg">
+          {% if total_laptops > 0 %}
+          <div
+            class="progress-fill"
+            style="width: {% widthratio assigned_laptops total_laptops 100 %}%"
+          ></div>
+          {% else %}
+          <div class="progress-fill" style="width: 0%"></div>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Overdue Card -->
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">Overdue</div>
+            <div class="card-value" id="overdueRentals">
+              {{ overdue_assignments }}
+            </div>
+          </div>
+          <div class="card-icon card-icon-5">
+            <i class="fas fa-exclamation-triangle"></i>
+          </div>
+        </div>
+        <div class="progress-bar-bg">
+          {% if active_assignments > 0 %}
+          <div
+            class="progress-fill"
+            style="width: {% widthratio overdue_assignments active_assignments 100 %}%"
+          ></div>
+          {% else %}
+          <div class="progress-fill" style="width: 0%"></div>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Students Registered Card -->
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">Students Registered</div>
+            <div class="card-value" id="totalStudents">
+              {{ total_students }}
+            </div>
+          </div>
+          <div class="card-icon card-icon-6">
+            <i class="fas fa-user-graduate"></i>
+          </div>
+        </div>
+        <div class="progress-bar-bg">
+          {% if total_students > 0 %}
+          <div
+            class="progress-fill"
+            style="width: {% widthratio total_students 200 100 %}%"
+          ></div>
+          {% else %}
+          <div class="progress-fill" style="width: 0%"></div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Recent Activity / Assignments -->
+    <div class="data-section">
+      <div class="section-header">
+        <h2 class="section-title">Recent Assignments</h2>
+        <div class="section-actions">
+          <button
+            class="btn btn-outline btn-sm"
+            id="refreshAssignments"
+            onclick="location.reload()"
+          >
+            <i class="fas fa-sync-alt"></i> Refresh
+          </button>
+        </div>
+      </div>
+
+      <div class="table-responsive">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Student/Staff</th>
+              <th>Laptop</th>
+              <th>Assigned Date</th>
+              <th>Due Date</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="recentAssignmentsTable">
+            {% for assignment in recent_assignments %}
+            <tr>
+              <td>
+                <div class="user-info">
+                  <span class="user-name">{{ assignment.person.name }}</span>
+                  <small class="user-type"
+                    >{{ assignment.person.person_type }}</small
+                  >
+                </div>
+              </td>
+              <td>{{ assignment.laptop.SerialNumber }}</td>
+              <td>{{ assignment.issue_date|date:"M d, Y" }}</td>
+              <td>{{ assignment.expected_return_date|date:"M d, Y" }}</td>
+              <td>
+                {% if assignment.assignment_status == 'Issued' %}
+                <span class="badge badge-primary">Issued</span>
+                {% elif assignment.assignment_status == 'Returned' %}
+                <span class="badge badge-success">Returned</span>
+                {% elif assignment.assignment_status == 'Overdue' %}
+                <span class="badge badge-danger">Overdue</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% empty %}
+            <tr>
+              <td colspan="5" class="text-center text-muted">
+                No recent assignments found.
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Charts Section -->
+    <div class="row">
+      <div class="col-md-6">
+        <div class="card">
+          <div class="card-header">
+            <h3 class="section-title">Laptop Status Distribution</h3>
+          </div>
+          <div class="card-body">
+            <canvas id="laptopStatusChart" width="400" height="200"></canvas>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="card">
+          <div class="card-header">
+            <h3 class="section-title">Assignments by Month</h3>
+          </div>
+          <div class="card-body">
+            <canvas id="assignmentsChart" width="400" height="200"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- Quick Assign Modal -->
+<div class="modal-overlay" id="quickAssignModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 class="modal-title">Quick Assign Laptop</h2>
+      <button class="modal-close" id="closeQuickAssignModal">&times;</button>
+    </div>
+    <form method="post" action="{% url 'rental_system:quick_assign' %}">
+      {% csrf_token %}
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">Person</label>
+          <select name="person" class="form-control" required>
+            <option value="">Select Person</option>
+            {% for person in persons %}
+            <option value="{{ person.id }}">
+              {{ person.name }} ({{ person.person_type }})
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Laptop</label>
+          <select name="laptop" class="form-control" required>
+            <option value="">Select Laptop</option>
+            {% for laptop in available_laptops_list %}
+            <option value="{{ laptop.id }}">
+              {{ laptop.brand }} {{ laptop.name }} ({{ laptop.SerialNumber }})
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Issue Date</label>
+            <input
+              type="date"
+              name="issue_date"
+              class="form-control"
+              value="{% now 'Y-m-d' %}"
+              required
+            />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Expected Return Date</label>
+            <input
+              type="date"
+              name="expected_return_date"
+              class="form-control"
+              required
+            />
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Academic Year</label>
+          <input
+            type="text"
+            name="academic_year"
+            class="form-control"
+            placeholder="2024-2025"
+            required
+          />
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" id="cancelQuickAssign">
+          Cancel
+        </button>
+        <button type="submit" class="btn btn-primary">Assign Laptop</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Chart.js for Charts -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+  // Laptop Status Chart
+  const ctx1 = document.getElementById('laptopStatusChart').getContext('2d');
+  new Chart(ctx1, {
+      type: 'doughnut',
+      data: {
+          labels: ['Available', 'Assigned', 'In Repair', 'Damage'],
+          datasets: [{
+              data: [{{ available_laptops }}, {{ assigned_laptops }}, {{ repair_laptops }}, {{ damage_laptops }}],
+              backgroundColor: ['#27ae60', '#5b72b5', '#f39c12', '#e74c3c']
+          }]
+      },
+      options: {
+          responsive: true,
+          plugins: {
+              legend: {
+                  position: 'bottom',
+                  labels: {
+                      color: '#1e3a5f'
+                  }
+              }
+          }
+      }
+  });
+
+  // Assignments Chart (Monthly)
+  const ctx2 = document.getElementById('assignmentsChart').getContext('2d');
+  new Chart(ctx2, {
+      type: 'line',
+      data: {
+          labels: [{% for month in monthly_labels %}'{{ month }}',{% endfor %}],
+          datasets: [{
+              label: 'Assignments',
+              data: [{% for count in monthly_counts %}{{ count }},{% endfor %}],
+              borderColor: '#362e90',
+              backgroundColor: 'rgba(54, 46, 144, 0.1)',
+              tension: 0.4,
+              fill: true
+          }]
+      },
+      options: {
+          responsive: true,
+          plugins: {
+              legend: {
+                  display: false
+              }
+          },
+          scales: {
+              y: {
+                  grid: {
+                      color: 'rgba(255, 255, 255, 0.1)'
+                  },
+                  ticks: {
+                      color: '#2c4c6b'
+                  }
+              },
+              x: {
+                  grid: {
+                      display: false
+                  },
+                  ticks: {
+                      color: '#2c4c6b'
+                  }
+              }
+          }
+      }
+  });
+
+  // Export function
+  function exportData() {
+      alert('Export functionality will be implemented here');
+  }
+
+  // Modal handling
+  document.addEventListener('DOMContentLoaded', function() {
+      const quickAssignBtn = document.getElementById('quickAssign');
+      const modal = document.getElementById('quickAssignModal');
+      const closeBtn = document.getElementById('closeQuickAssignModal');
+      const cancelBtn = document.getElementById('cancelQuickAssign');
+
+      if (quickAssignBtn) {
+          quickAssignBtn.addEventListener('click', function() {
+              modal.classList.add('active');
+          });
+      }
+
+      function closeModal() {
+          modal.classList.remove('active');
+      }
+
+      if (closeBtn) closeBtn.addEventListener('click', closeModal);
+      if (cancelBtn) cancelBtn.addEventListener('click', closeModal);
+
+      // Close when clicking outside
+      modal.addEventListener('click', function(e) {
+          if (e.target === modal) {
+              closeModal();
+          }
+      });
+  });
+</script>
+{% endblock %}

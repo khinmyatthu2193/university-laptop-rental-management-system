@@ -1,0 +1,1008 @@
+{% extends "home.html" %}
+{% load rental_extras %}
+
+{% block content %}
+
+<div class="inventory-page">
+  <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
+    <div>
+      <h2 class="page-title mb-1">Inventory Management</h2>
+      <p class="text-muted mb-0">Manage laptop stock and track device status.</p>
+    </div>
+
+    <div class="d-flex align-items-center gap-2 flex-wrap">
+      <button type="button" class="btn btn-upload-excel" id="openImportLaptopBtn">
+        <i class="fa-solid fa-file-arrow-up me-2"></i>Import Excel
+      </button>
+
+      <button type="button" class="btn btn-add-record" id="openAddLaptopBtn">
+        <i class="fas fa-plus me-2"></i>Add Device
+      </button>
+    </div>
+  </div>
+
+  <div class="d-flex flex-wrap gap-2 mb-3">
+    {% for s in status_list %}
+      <a class="btn btn-sm status-chip {% if status_active == s %}active{% endif %}"
+         href="?status={{ s|urlencode }}{% if search_query %}&search={{ search_query|urlencode }}{% endif %}{% if request.GET.sort %}&sort={{ request.GET.sort|urlencode }}{% endif %}">
+        {{ s }}
+      </a>
+    {% endfor %}
+  </div>
+
+  <form method="get" class="filter-row mb-4">
+    <input type="hidden" name="sort" value="{{ request.GET.sort|default:'newest' }}">
+
+    <div class="filter-item">
+      <label class="form-label filter-label">Search</label>
+      <input type="text" name="search" value="{{ search_query }}" class="form-control filter-input" placeholder="Search laptop serial number">
+    </div>
+
+    <div class="filter-item">
+      <label class="form-label filter-label">Status</label>
+      <select name="status" class="form-select filter-input">
+        {% for s in status_list %}
+          <option value="{{ s }}" {% if status_active == s %}selected{% endif %}>{{ s }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="filter-btn-wrap">
+      <button type="submit" class="btn w-100 filter-btn">Apply</button>
+    </div>
+
+    <div class="filter-reset-wrap">
+      <a href="{% url 'rental_system:inventory_list' %}" class="btn btn-reset-filter w-100">Reset</a>
+    </div>
+  </form>
+
+  <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <h4 class="mb-0 section-title">Devices <span class="text-muted">({{ laptops|length }})</span></h4>
+
+    <form method="get" class="inventory-sort-form d-flex align-items-center gap-2">
+      <input type="hidden" name="status" value="{{ status_active }}">
+      <input type="hidden" name="search" value="{{ search_query }}">
+
+      <label class="small text-muted fw-semibold mb-0">Sort by</label>
+      <select name="sort" class="form-select form-select-sm inventory-sort-select" onchange="this.form.submit()">
+        <option value="newest" {% if request.GET.sort == 'newest' %}selected{% endif %}>Newest</option>
+        <option value="oldest" {% if request.GET.sort == 'oldest' %}selected{% endif %}>Oldest</option>
+        <option value="az" {% if request.GET.sort == 'az' or not request.GET.sort %}selected{% endif %}>A–Z</option>
+        <option value="za" {% if request.GET.sort == 'za' %}selected{% endif %}>Z–A</option>
+      </select>
+    </form>
+  </div>
+
+  <div class="card table-shell border-0 shadow-sm">
+    <div class="table-responsive">
+      <table class="table align-middle table-hover record-table mb-0">
+        <thead>
+          <tr>
+            <th style="width:130px;">Laptop Number</th>
+            <th>Brand &amp; Model</th>
+            <th style="width:140px;">CPU Gen</th>
+            <th style="width:90px;">RAM</th>
+            <th style="width:140px;">Storage</th>
+            <th style="width:120px;">For Whom</th>
+            <th style="width:120px;">Status</th>
+            <th>Assigned To</th>
+            <th class="text-center" style="width:130px;">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for l in laptops %}
+          <tr>
+            <td class="fw-semibold">{{ l.SerialNumber }}</td>
+            <td>
+              <div class="fw-bold">{{ l.brand }}</div>
+              <div class="small text-muted">{{ l.name }}</div>
+            </td>
+            <td>{{ l.processor_gen }}</td>
+            <td>{{ l.ram }} GB</td>
+            <td>{{ l.storage }}</td>
+            <td>
+              {% if l.for_whom == "Student" %}
+                <span class="badge bg-info text-dark">Student</span>
+              {% else %}
+                <span class="badge bg-secondary">Staff</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if l.status == "Available" %}
+                <span class="badge bg-success">Available</span>
+              {% elif l.status == "Assigned" %}
+                <span class="badge bg-primary">Assigned</span>
+              {% elif l.status == "In Repair" %}
+                <span class="badge bg-warning text-dark">In Repair</span>
+              {% else %}
+                <span class="badge bg-danger">Damage</span>
+              {% endif %}
+            </td>
+            <td>
+              {% with assigned_person=assigned_map|get_item:l.id %}
+                {% if assigned_person %}
+                  <div class="fw-semibold">{{ assigned_person.name }}</div>
+                  <div class="small text-muted">{{ assigned_person.type }}</div>
+                  {% if assigned_person.extra %}
+                    <div class="small text-muted">{{ assigned_person.extra }}</div>
+                  {% endif %}
+                {% else %}
+                  <span class="text-muted">—</span>
+                {% endif %}
+              {% endwith %}
+            </td>
+            <td class="text-center">
+              <div class="action-buttons justify-content-center">
+                <button type="button"
+                        class="btn btn-sm btn-icon btn-view view-btn"
+                        data-laptop-id="{{ l.id }}"
+                        title="View">
+                  <i class="fas fa-eye"></i>
+                </button>
+                <button type="button"
+                        class="btn btn-sm btn-icon btn-edit edit-btn"
+                        data-laptop-id="{{ l.id }}"
+                        title="Edit">
+                  <i class="fas fa-edit"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="9" class="text-muted text-center py-4">No devices found.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="device-popup-overlay" id="addLaptopPopup">
+  <div class="device-popup-panel">
+    <form method="post" action="{% url 'rental_system:laptop_create' %}" class="h-100 d-flex flex-column">
+      {% csrf_token %}
+
+      <div class="device-popup-header">
+        <h5 class="mb-0 fw-bold">
+          <i class="fas fa-laptop-medical me-2"></i>Add Device
+        </h5>
+        <button type="button" class="device-popup-close" data-close-device-popup="addLaptopPopup">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+
+      <div class="device-popup-body">
+        <div class="device-form-inner">
+          <div class="form-block">
+            <h6 class="form-block-title">Device Information</h6>
+            <div class="row g-4">
+              <div class="col-md-6">
+                <label class="form-label fw-semibold">Serial No (Code)</label>
+                {{ form.SerialNumber }}
+              </div>
+              <div class="col-md-6">
+                <label class="form-label fw-semibold">Brand</label>
+                {{ form.brand }}
+              </div>
+              <div class="col-md-6">
+                <label class="form-label fw-semibold">Model Name</label>
+                {{ form.name }}
+              </div>
+              <div class="col-md-6">
+                <label class="form-label fw-semibold">Processor Gen</label>
+                {{ form.processor_gen }}
+              </div>
+              <div class="col-md-4">
+                <label class="form-label fw-semibold">RAM</label>
+                {{ form.ram }}
+              </div>
+              <div class="col-md-4">
+                <label class="form-label fw-semibold">Storage</label>
+                {{ form.storage }}
+              </div>
+              <div class="col-md-4">
+                <label class="form-label fw-semibold">For Whom</label>
+                {{ form.for_whom }}
+              </div>
+              <div class="col-md-6">
+                <label class="form-label fw-semibold">Status</label>
+                {{ form.status }}
+              </div>
+              <div class="col-md-6">
+                <label class="form-label fw-semibold">Remark</label>
+                {{ form.remark }}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="device-popup-footer">
+        <button type="button" class="btn btn-outline-secondary" data-close-device-popup="addLaptopPopup">Cancel</button>
+        <button type="submit" class="btn btn-success">
+          <i class="fas fa-save me-1"></i>Add Device
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="device-popup-overlay" id="importLaptopPopup">
+  <div class="device-popup-panel" style="max-width: 720px; height: auto;">
+    <form method="post" action="{% url 'rental_system:import_laptops' %}" enctype="multipart/form-data" class="h-100 d-flex flex-column">
+      {% csrf_token %}
+
+      <div class="device-popup-header">
+        <h5 class="mb-0 fw-bold">
+          <i class="fas fa-file-excel me-2"></i>Import Laptops from Excel
+        </h5>
+        <button type="button" class="device-popup-close" data-close-device-popup="importLaptopPopup">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+
+      <div class="device-popup-body">
+        <div class="device-form-inner">
+          <div class="form-block">
+            <h6 class="form-block-title">Upload Excel File</h6>
+
+            <div class="mb-3">
+              <label class="form-label fw-semibold">Choose .xlsx file</label>
+              <input type="file" name="file" class="form-control soft-input" accept=".xlsx,.xls" required>
+            </div>
+
+            <div class="alert alert-info mb-0">
+              <strong>Required columns:</strong><br>
+              <code>SerialNumber, name, brand, processor_gen, ram, storage, for_whom, status, remark</code>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="device-popup-footer">
+        <button type="button" class="btn btn-outline-secondary" data-close-device-popup="importLaptopPopup">Cancel</button>
+        <button type="submit" class="btn btn-success">
+          <i class="fas fa-upload me-1"></i>Upload Excel
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const laptopsData = {
+        {% for l in laptops %}
+        "{{ l.id }}": {
+            id: "{{ l.id }}",
+            SerialNumber: "{{ l.SerialNumber|escapejs }}",
+            brand: "{{ l.brand|escapejs }}",
+            name: "{{ l.name|escapejs }}",
+            processor_gen: "{{ l.processor_gen|escapejs }}",
+            ram: "{{ l.ram|escapejs }}",
+            storage: "{{ l.storage|escapejs }}",
+            for_whom: "{{ l.for_whom|escapejs }}",
+            status: "{{ l.status|escapejs }}",
+            remark: "{{ l.remark|default:''|escapejs }}",
+            replace: "{% if l.remark and 'Replace: Yes' in l.remark %}Yes{% else %}No{% endif %}",
+            assigned_to: `{% with assigned_person=assigned_map|get_item:l.id %}{% if assigned_person %}{{ assigned_person.name|escapejs }}{% endif %}{% endwith %}`,
+            assigned_role: `{% with assigned_person=assigned_map|get_item:l.id %}{% if assigned_person and assigned_person.type %}{{ assigned_person.type|escapejs }}{% endif %}{% endwith %}`,
+            assigned_extra: `{% with assigned_person=assigned_map|get_item:l.id %}{% if assigned_person and assigned_person.extra %}{{ assigned_person.extra|escapejs }}{% endif %}{% endwith %}`
+        }{% if not forloop.last %},{% endif %}
+        {% endfor %}
+    };
+
+    const laptopUpdateUrlTemplate = "{% url 'rental_system:laptop_update' 0 %}";
+
+    function openDevicePopup(id) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.classList.add('active');
+        document.body.classList.add('device-popup-open');
+    }
+
+    function closeDevicePopup(id) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.classList.remove('active');
+        if (!document.querySelector('.device-popup-overlay.active')) {
+            document.body.classList.remove('device-popup-open');
+        }
+    }
+
+    function getStatusBadgeClass(status) {
+        if (status === 'Available') return 'bg-success';
+        if (status === 'Assigned') return 'bg-primary';
+        if (status === 'In Repair') return 'bg-warning text-dark';
+        return 'bg-danger';
+    }
+
+    function createViewOffcanvas(laptop) {
+        const offcanvasId = `viewLaptop${laptop.id}`;
+        const existing = document.getElementById(offcanvasId);
+        if (existing) existing.remove();
+
+        const assignedBlock = laptop.assigned_to
+            ? `${laptop.assigned_to}
+               <div class="text-muted small mt-1">${laptop.assigned_role || ''}</div>
+               ${laptop.assigned_extra ? `<div class="text-muted small">${laptop.assigned_extra}</div>` : ''}`
+            : `<span class="text-muted">—</span>`;
+
+        const offcanvasHtml = `
+            <div class="offcanvas offcanvas-end custom-offcanvas" id="${offcanvasId}" tabindex="-1">
+                <div class="offcanvas-header custom-offcanvas-header">
+                    <h5 class="offcanvas-title fw-bold">${laptop.SerialNumber}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+                </div>
+
+                <div class="offcanvas-body custom-offcanvas-body">
+                    <div class="mb-4 text-center">
+                        <span class="badge ${getStatusBadgeClass(laptop.status)} p-3 w-100 status-banner" style="font-size:1rem;">
+                            ${laptop.status}
+                        </span>
+                    </div>
+
+                    <div class="card mb-4 shadow-sm">
+                        <div class="card-header section-header">
+                            <i class="fas fa-laptop me-2"></i>Device Information
+                        </div>
+                        <div class="card-body">
+                            <div class="row mb-3">
+                                <div class="col-5 text-muted">Serial No:</div>
+                                <div class="col-7 fw-bold">${laptop.SerialNumber}</div>
+                            </div>
+                            <div class="row mb-3">
+                                <div class="col-5 text-muted">Brand:</div>
+                                <div class="col-7">${laptop.brand || '—'}</div>
+                            </div>
+                            <div class="row mb-3">
+                                <div class="col-5 text-muted">Model:</div>
+                                <div class="col-7">${laptop.name || '—'}</div>
+                            </div>
+                            <div class="row mb-3">
+                                <div class="col-5 text-muted">Processor:</div>
+                                <div class="col-7">${laptop.processor_gen || '—'}</div>
+                            </div>
+                            <div class="row mb-3">
+                                <div class="col-5 text-muted">RAM:</div>
+                                <div class="col-7">${laptop.ram ? laptop.ram + ' GB' : '—'}</div>
+                            </div>
+                            <div class="row mb-3">
+                                <div class="col-5 text-muted">Storage:</div>
+                                <div class="col-7">${laptop.storage || '—'}</div>
+                            </div>
+                            <div class="row mb-0">
+                                <div class="col-5 text-muted">For Whom:</div>
+                                <div class="col-7">${laptop.for_whom || '—'}</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card mb-4 shadow-sm">
+                        <div class="card-header section-header">
+                            <i class="fas fa-clipboard-check me-2"></i>Assignment & Status
+                        </div>
+                        <div class="card-body">
+                            <div class="row mb-3">
+                                <div class="col-5 text-muted">Status:</div>
+                                <div class="col-7">
+                                    <span class="badge ${getStatusBadgeClass(laptop.status)}">${laptop.status}</span>
+                                </div>
+                            </div>
+                            <div class="row mb-3">
+                                <div class="col-5 text-muted">Assigned To:</div>
+                                <div class="col-7">${assignedBlock}</div>
+                            </div>
+                            <div class="row mb-3">
+                                <div class="col-5 text-muted">Replace:</div>
+                                <div class="col-7">${laptop.replace || 'No'}</div>
+                            </div>
+                            <div class="row mb-0">
+                                <div class="col-5 text-muted">Remark:</div>
+                                <div class="col-7">${laptop.remark || '—'}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="offcanvas-footer custom-offcanvas-footer">
+                    <div class="d-flex gap-2 justify-content-end">
+                        <button class="btn btn-secondary" data-bs-dismiss="offcanvas">
+                            <i class="fas fa-times me-1"></i>Close
+                        </button>
+                        <button class="btn btn-outline-primary edit-from-view" data-laptop-id="${laptop.id}">
+                            <i class="fas fa-edit me-1"></i>Edit Device
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.insertAdjacentHTML('beforeend', offcanvasHtml);
+        return new bootstrap.Offcanvas(document.getElementById(offcanvasId));
+    }
+
+    function createEditPopup(laptop) {
+        const popupId = `editLaptopPopup${laptop.id}`;
+        const existing = document.getElementById(popupId);
+        if (existing) existing.remove();
+
+        const updateAction = laptopUpdateUrlTemplate.replace('/0/edit/', `/${laptop.id}/edit/`);
+
+        const popupHtml = `
+            <div class="device-popup-overlay" id="${popupId}">
+                <div class="device-popup-panel">
+                    <form method="post" action="${updateAction}" class="h-100 d-flex flex-column">
+                        {% csrf_token %}
+
+                        <div class="device-popup-header">
+                            <h5 class="mb-0 fw-bold">
+                                <i class="fas fa-edit me-2"></i>Edit Device (${laptop.SerialNumber})
+                            </h5>
+                            <button type="button" class="device-popup-close" data-close-device-popup="${popupId}">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+
+                        <div class="device-popup-body">
+                            <div class="device-form-inner">
+                                <div class="form-block">
+                                    <h6 class="form-block-title">Device Information</h6>
+                                    <div class="row g-4">
+                                        <div class="col-md-6">
+                                            <label class="form-label fw-semibold">Serial No (Code)</label>
+                                            <input name="SerialNumber" value="${laptop.SerialNumber}" class="form-control soft-input">
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label fw-semibold">Brand</label>
+                                            <input name="brand" value="${laptop.brand}" class="form-control soft-input">
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label fw-semibold">Model Name</label>
+                                            <input name="name" value="${laptop.name}" class="form-control soft-input">
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label fw-semibold">Processor Gen</label>
+                                            <input name="processor_gen" value="${laptop.processor_gen}" class="form-control soft-input">
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label fw-semibold">RAM</label>
+                                            <input name="ram" value="${laptop.ram}" class="form-control soft-input">
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label fw-semibold">Storage</label>
+                                            <input name="storage" value="${laptop.storage}" class="form-control soft-input">
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label fw-semibold">For Whom</label>
+                                            <select name="for_whom" class="form-select soft-input">
+                                                <option value="Student" ${laptop.for_whom === 'Student' ? 'selected' : ''}>Student</option>
+                                                <option value="Staff" ${laptop.for_whom === 'Staff' ? 'selected' : ''}>Staff</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label fw-semibold">Status</label>
+                                            <select name="status" class="form-select soft-input">
+                                                <option value="Available" ${laptop.status === 'Available' ? 'selected' : ''}>Available</option>
+                                                <option value="Assigned" ${laptop.status === 'Assigned' ? 'selected' : ''}>Assigned</option>
+                                                <option value="In Repair" ${laptop.status === 'In Repair' ? 'selected' : ''}>In Repair</option>
+                                                <option value="Damage" ${laptop.status === 'Damage' ? 'selected' : ''}>Damage</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label fw-semibold">Remark</label>
+                                            <input name="remark" value="${laptop.remark || ''}" class="form-control soft-input">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="device-popup-footer">
+                            <button type="button" class="btn btn-outline-secondary" data-close-device-popup="${popupId}">Cancel</button>
+                            <button type="submit" class="btn btn-success">
+                                <i class="fas fa-save me-1"></i>Save Changes
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        `;
+
+        document.body.insertAdjacentHTML('beforeend', popupHtml);
+        return popupId;
+    }
+
+    document.getElementById('openAddLaptopBtn')?.addEventListener('click', function () {
+        openDevicePopup('addLaptopPopup');
+    });
+
+    document.getElementById('openImportLaptopBtn')?.addEventListener('click', function () {
+        openDevicePopup('importLaptopPopup');
+    });
+
+    document.querySelectorAll('.view-btn').forEach(btn => {
+        btn.addEventListener('click', function (e) {
+            e.preventDefault();
+            const laptopId = this.getAttribute('data-laptop-id');
+            const laptop = laptopsData[laptopId];
+            if (!laptop) return;
+            const offcanvas = createViewOffcanvas(laptop);
+            offcanvas.show();
+        });
+    });
+
+    document.querySelectorAll('.edit-btn').forEach(btn => {
+        btn.addEventListener('click', function (e) {
+            e.preventDefault();
+            const laptopId = this.getAttribute('data-laptop-id');
+            const laptop = laptopsData[laptopId];
+            if (!laptop) return;
+            const popupId = createEditPopup(laptop);
+            openDevicePopup(popupId);
+        });
+    });
+
+    document.addEventListener('click', function (e) {
+        const closeBtn = e.target.closest('[data-close-device-popup]');
+        if (closeBtn) {
+            closeDevicePopup(closeBtn.getAttribute('data-close-device-popup'));
+            return;
+        }
+
+        const editFromViewBtn = e.target.closest('.edit-from-view');
+        if (editFromViewBtn) {
+            const laptopId = editFromViewBtn.getAttribute('data-laptop-id');
+            const laptop = laptopsData[laptopId];
+            if (!laptop) return;
+
+            const offcanvasElement = editFromViewBtn.closest('.offcanvas');
+            if (offcanvasElement) {
+                const offcanvas = bootstrap.Offcanvas.getInstance(offcanvasElement);
+                if (offcanvas) offcanvas.hide();
+            }
+
+            setTimeout(() => {
+                const popupId = createEditPopup(laptop);
+                openDevicePopup(popupId);
+            }, 250);
+            return;
+        }
+
+        const overlay = e.target.closest('.device-popup-overlay');
+        if (overlay && e.target === overlay) {
+            overlay.classList.remove('active');
+            if (!document.querySelector('.device-popup-overlay.active')) {
+                document.body.classList.remove('device-popup-open');
+            }
+        }
+    });
+
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') {
+            document.querySelectorAll('.device-popup-overlay.active').forEach(p => p.classList.remove('active'));
+            if (!document.querySelector('.device-popup-overlay.active')) {
+                document.body.classList.remove('device-popup-open');
+            }
+        }
+    });
+});
+</script>
+
+<style>
+:root {
+    --light-blue: #cce3f3;
+    --blue: #5b72b5;
+    --sky-blue: #89adda;
+    --yellow-gold: #dde659;
+    --purple-dark: #362e90;
+}
+
+body.device-popup-open {
+    overflow: hidden;
+}
+
+.page-title {
+    font-size: 2.2rem;
+    font-weight: 800;
+    color: #362e90;
+}
+
+.section-title {
+    font-weight: 700;
+    color: #172b4d;
+}
+
+.btn-add-record {
+    background: linear-gradient(135deg, #5867d8, #362e90);
+    color: #fff;
+    border: none;
+    border-radius: 999px;
+    padding: 10px 22px;
+    font-weight: 700;
+}
+
+.btn-add-record:hover {
+    color: #fff;
+    opacity: 0.95;
+}
+
+.btn-upload-excel {
+    background: linear-gradient(135deg, #1d976c, #147a55);
+    color: #fff;
+    border: none;
+    border-radius: 999px;
+    padding: 10px 22px;
+    font-weight: 700;
+}
+
+.btn-upload-excel:hover {
+    color: #fff;
+    opacity: 0.95;
+}
+
+.status-chip {
+    border-radius: 999px;
+    border: 1px solid #d7dfeb;
+    color: #52607a;
+    background: #fff;
+    font-weight: 600;
+    padding: 7px 14px;
+}
+
+.status-chip.active {
+    color: #fff;
+    border-color: transparent;
+    background: linear-gradient(135deg, #5867d8, #362e90);
+}
+
+.status-chip:hover {
+    color: #172b4d;
+    border-color: #c9d4e8;
+}
+
+.status-chip.active:hover {
+    color: #fff;
+}
+
+.filter-row {
+    display: grid;
+    grid-template-columns: 1.6fr 1.2fr 180px 140px;
+    gap: 16px;
+    align-items: end;
+    margin-bottom: 28px;
+}
+
+.filter-label {
+    font-weight: 700;
+    color: #3e557f;
+    font-size: 0.95rem;
+    margin-bottom: 8px;
+}
+
+.filter-input {
+    border-radius: 999px;
+    min-height: 54px;
+    border: 1px solid #d7dfeb;
+    background: rgba(255,255,255,0.92);
+    box-shadow: none;
+}
+
+.filter-btn {
+    min-height: 54px;
+    border-radius: 999px;
+    font-weight: 700;
+    border: none !important;
+    color: #fff !important;
+    background: linear-gradient(135deg, #5867d8, #362e90) !important;
+}
+
+.filter-btn:hover {
+    color: #fff !important;
+    background: linear-gradient(135deg, #5362d1, #2f2785) !important;
+}
+
+.btn-reset-filter {
+    min-height: 54px;
+    border-radius: 999px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    font-weight: 700;
+    color: #6a768b;
+    background: rgba(255,255,255,0.78);
+    border: 1px solid #d7dfeb;
+}
+
+.btn-reset-filter:hover {
+    color: #172b4d;
+    background: #fff;
+}
+
+.inventory-sort-form {
+    margin-left: auto;
+}
+
+.inventory-sort-select {
+    min-width: 130px;
+    border-radius: 999px;
+    border: 1px solid #d7dfeb;
+    background: rgba(255,255,255,0.92);
+    font-weight: 600;
+    color: #172b4d;
+    padding-left: 14px;
+    padding-right: 36px;
+    box-shadow: none;
+}
+
+.inventory-sort-select:focus {
+    border-color: var(--yellow-gold);
+    box-shadow: 0 0 0 0.18rem rgba(221, 230, 89, 0.25);
+}
+
+.table-shell {
+    border-radius: 22px;
+    overflow: hidden;
+}
+
+.record-table thead th {
+    background: #f8fbff;
+    font-weight: 800;
+    border-bottom: 1px solid #e5edf8;
+    color: #172b4d;
+}
+
+.record-table tbody tr:hover {
+    background: #fafcff;
+}
+
+.action-buttons {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.btn-icon {
+    width: 38px;
+    height: 38px;
+    padding: 0;
+    border-radius: 10px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.95rem;
+}
+
+.btn-view {
+    color: #6c757d;
+    border: 1px solid #d9dee8;
+    background: #fff;
+}
+
+.btn-view:hover {
+    color: #fff;
+    background: #6c757d;
+    border-color: #6c757d;
+}
+
+.btn-edit {
+    color: #0d6efd;
+    border: 1px solid #cfe0ff;
+    background: #fff;
+}
+
+.btn-edit:hover {
+    color: #fff;
+    background: #0d6efd;
+    border-color: #0d6efd;
+}
+
+.device-popup-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(14, 25, 44, 0.45);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    z-index: 2000;
+}
+
+.device-popup-overlay.active {
+    display: flex;
+}
+
+.device-popup-panel {
+    width: min(980px, 96vw);
+    height: min(92vh, 900px);
+    max-height: 92vh;
+    background: #f7fbff;
+    border-radius: 24px;
+    overflow: hidden;
+    box-shadow: 0 24px 60px rgba(37, 45, 89, 0.28);
+    display: flex;
+    flex-direction: column;
+    margin: 0 auto;
+}
+
+.device-popup-panel form {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+}
+
+.device-popup-header {
+    background: linear-gradient(135deg, var(--light-blue), var(--sky-blue));
+    border-bottom: 2px solid var(--yellow-gold);
+    padding: 1.2rem 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    color: var(--purple-dark);
+    flex-shrink: 0;
+}
+
+.device-popup-close {
+    border: none;
+    background: transparent;
+    color: #52607a;
+    font-size: 1.6rem;
+    line-height: 1;
+    padding: 0;
+}
+
+.device-popup-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 1.5rem 1.75rem;
+    background: #f7fbff;
+}
+
+.device-popup-footer {
+    padding: 1rem 1.5rem;
+    border-top: 1px solid rgba(0,0,0,0.08);
+    background: #f7fbff;
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    flex-shrink: 0;
+}
+
+.device-form-inner {
+    max-width: 860px;
+    margin: 0 auto;
+}
+
+.form-block-title {
+    color: var(--purple-dark);
+    font-weight: 800;
+    font-size: 1.35rem;
+    margin-bottom: 18px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #dbe4f0;
+}
+
+.device-popup-panel input,
+.device-popup-panel select,
+.device-popup-panel textarea,
+.soft-input {
+    border-radius: 999px;
+    min-height: 56px;
+    background: rgba(255,255,255,0.92);
+    border: 1px solid #e0e7f1;
+    padding-left: 1rem;
+    padding-right: 1rem;
+}
+
+.device-popup-panel textarea {
+    border-radius: 20px;
+    min-height: 120px;
+    padding-top: 0.9rem;
+    padding-bottom: 0.9rem;
+}
+
+.device-popup-panel input:focus,
+.device-popup-panel select:focus,
+.device-popup-panel textarea:focus,
+.soft-input:focus,
+.form-control:focus,
+.form-select:focus {
+    border-color: var(--yellow-gold);
+    box-shadow: 0 0 0 0.18rem rgba(221, 230, 89, 0.25);
+}
+
+.custom-offcanvas {
+    width: 450px !important;
+    background: rgba(255,255,255,0.98);
+    backdrop-filter: blur(10px);
+}
+
+.custom-offcanvas-header {
+    border-bottom: 2px solid var(--yellow-gold);
+    background: linear-gradient(135deg, var(--light-blue), var(--sky-blue));
+    color: var(--purple-dark);
+}
+
+.custom-offcanvas-body {
+    padding: 20px;
+    overflow-y: auto;
+    height: calc(100vh - 140px);
+}
+
+.custom-offcanvas-footer {
+    padding: 16px;
+    border-top: 1px solid rgba(0,0,0,0.08);
+    background: #f8f9fb;
+}
+
+.section-header {
+    background: var(--light-blue);
+    color: var(--purple-dark);
+    font-weight: 700;
+}
+
+.status-banner {
+    font-weight: 700;
+    letter-spacing: 0.2px;
+}
+
+.badge {
+    padding: 8px 12px;
+    font-weight: 600;
+}
+
+@media (max-width: 1200px) {
+    .filter-row {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+@media (max-width: 768px) {
+    .page-title {
+        font-size: 1.8rem;
+    }
+
+    .filter-row {
+        grid-template-columns: 1fr;
+    }
+
+    .inventory-sort-form {
+        width: 100%;
+        justify-content: flex-start;
+        margin-left: 0;
+    }
+
+    .inventory-sort-select {
+        min-width: 150px;
+    }
+
+    .custom-offcanvas {
+        width: 100% !important;
+    }
+
+    .device-popup-overlay {
+        padding: 10px;
+    }
+
+    .device-popup-panel {
+        width: 100%;
+        max-height: 94vh;
+        border-radius: 18px;
+    }
+
+    .device-popup-body {
+        padding: 1rem;
+    }
+
+    .device-popup-footer {
+        padding: 0.9rem 1rem;
+    }
+}
+</style>
+
+{% endblock %}

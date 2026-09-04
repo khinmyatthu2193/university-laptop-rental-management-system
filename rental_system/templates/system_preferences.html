@@ -1,0 +1,942 @@
+{% extends 'home.html' %}<!--
+-->{% block title %}System Preferences - UniKit{% endblock %}<!--
+-->{% block content %}
+
+<style>
+  /* Preferences page styles */
+  .preferences-container {
+    max-width: 900px;
+    margin: 0 auto;
+  }
+
+  .pref-section {
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(10px);
+    border-radius: 16px;
+    padding: 25px;
+    margin-bottom: 25px;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    box-shadow: var(--card-shadow);
+    transition: all 0.3s ease;
+  }
+
+  .pref-section:hover {
+    transform: translateY(-2px);
+    border-color: var(--yellow-gold);
+    background: rgba(255, 255, 255, 0.95);
+  }
+
+  .pref-header {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 2px solid var(--yellow-gold);
+  }
+
+  .pref-icon {
+    width: 50px;
+    height: 50px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    color: white;
+    background: linear-gradient(135deg, var(--blue), var(--purple-dark));
+  }
+
+  .pref-title {
+    font-size: 1.3rem;
+    font-weight: 600;
+    color: var(--purple-dark);
+    margin: 0;
+  }
+
+  .pref-subtitle {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    margin-top: 3px;
+  }
+
+  .pref-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 0;
+    border-bottom: 1px solid rgba(91, 114, 181, 0.1);
+  }
+
+  .pref-row:last-child {
+    border-bottom: none;
+  }
+
+  .pref-label {
+    font-weight: 500;
+    color: var(--text-primary);
+  }
+
+  .pref-desc {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin-top: 3px;
+  }
+
+  .pref-value {
+    color: var(--text-secondary);
+    font-weight: 500;
+  }
+
+  /* Toggle Switch */
+  .switch {
+    position: relative;
+    display: inline-block;
+    width: 50px;
+    height: 24px;
+    margin-left: 15px;
+  }
+
+  .switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+
+  .slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc;
+    transition: 0.4s;
+    border-radius: 34px;
+  }
+
+  .slider:before {
+    position: absolute;
+    content: "";
+    height: 20px;
+    width: 20px;
+    left: 2px;
+    bottom: 2px;
+    background-color: white;
+    transition: 0.4s;
+    border-radius: 50%;
+  }
+
+  input:checked + .slider {
+    background-color: var(--blue);
+  }
+
+  input:focus + .slider {
+    box-shadow: 0 0 1px var(--blue);
+  }
+
+  input:checked + .slider:before {
+    transform: translateX(26px);
+  }
+
+  /* Radio and Checkbox styles */
+  .radio-group {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+  }
+
+  .radio-option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+  }
+
+  .radio-option input[type="radio"] {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--blue);
+    cursor: pointer;
+  }
+
+  .radio-option span {
+    color: var(--text-primary);
+  }
+
+  /* Select input */
+  .pref-select {
+    padding: 8px 15px;
+    border: 1px solid rgba(91, 114, 181, 0.3);
+    border-radius: 8px;
+    background: white;
+    color: var(--text-primary);
+    font-size: 0.95rem;
+    cursor: pointer;
+    min-width: 150px;
+  }
+
+  .pref-select:focus {
+    outline: none;
+    border-color: var(--yellow-gold);
+    box-shadow: 0 0 0 3px rgba(221, 230, 89, 0.2);
+  }
+
+  /* Color picker */
+  .color-picker {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .color-input {
+    width: 40px;
+    height: 40px;
+    border: 2px solid var(--border-color);
+    border-radius: 8px;
+    cursor: pointer;
+    padding: 0;
+  }
+
+  .color-input::-webkit-color-swatch-wrapper {
+    padding: 0;
+  }
+
+  .color-input::-webkit-color-swatch {
+    border: none;
+    border-radius: 6px;
+  }
+
+  /* Number input */
+  .number-input {
+    width: 80px;
+    padding: 8px;
+    border: 1px solid rgba(91, 114, 181, 0.3);
+    border-radius: 8px;
+    text-align: center;
+  }
+
+  .number-input:focus {
+    outline: none;
+    border-color: var(--yellow-gold);
+  }
+
+  /* Action buttons */
+  .pref-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 15px;
+    margin-top: 30px;
+    padding-top: 20px;
+    border-top: 1px solid rgba(255, 255, 255, 0.3);
+  }
+
+  /* Message styles */
+  .message-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 100000;
+    min-width: 300px;
+  }
+
+  .message {
+    padding: 15px 20px;
+    border-radius: 10px;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    animation: slideIn 0.3s ease;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+  }
+
+  .message-success {
+    background: linear-gradient(135deg, #27ae60, #219a52);
+    color: white;
+  }
+
+  .message-error {
+    background: linear-gradient(135deg, #e74c3c, #c0392b);
+    color: white;
+  }
+
+  .message-info {
+    background: linear-gradient(135deg, var(--blue), var(--purple-dark));
+    color: white;
+  }
+
+  .message i {
+    font-size: 1.2rem;
+  }
+
+  .message-close {
+    margin-left: auto;
+    cursor: pointer;
+    opacity: 0.8;
+    transition: opacity 0.3s ease;
+  }
+
+  .message-close:hover {
+    opacity: 1;
+  }
+
+  @keyframes slideIn {
+    from {
+      transform: translateX(100%);
+      opacity: 0;
+    }
+    to {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
+
+  /* Responsive */
+  @media (max-width: 768px) {
+    .pref-row {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 10px;
+    }
+
+    .pref-actions {
+      flex-direction: column;
+    }
+
+    .pref-actions button {
+      width: 100%;
+    }
+
+    .radio-group {
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .color-picker {
+      width: 100%;
+    }
+  }
+</style>
+
+<!-- Messages Container -->
+{% if messages %}
+<div class="message-container">
+  {% for message in messages %}
+  <div
+    class="message message-{{ message.tags }}"
+    id="message-{{ forloop.counter }}"
+  >
+    <i
+      class="fas fa-{% if message.tags == 'success' %}check-circle{% elif message.tags == 'error' %}exclamation-circle{% else %}info-circle{% endif %}"
+    ></i>
+    <span>{{ message }}</span>
+    <i
+      class="fas fa-times message-close"
+      onclick="this.parentElement.remove()"
+    ></i>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<div class="content-header">
+  <div>
+    <h1 class="page-title">System Preferences</h1>
+    <p class="page-subtitle">Configure system settings and preferences</p>
+  </div>
+  <div class="action-buttons">
+    <button class="btn btn-outline" onclick="window.history.back()">
+      <i class="fas fa-arrow-left"></i> Back
+    </button>
+  </div>
+</div>
+
+<div class="preferences-container">
+  <form method="post" action="{% url 'rental_system:save_preferences' %}">
+    {% csrf_token %}
+
+    <!-- General Settings -->
+    <div class="pref-section">
+      <div class="pref-header">
+        <div class="pref-icon">
+          <i class="fas fa-globe"></i>
+        </div>
+        <div>
+          <h3 class="pref-title">General Settings</h3>
+          <p class="pref-subtitle">Basic system configuration</p>
+        </div>
+      </div>
+
+      <div class="pref-row">
+        <div>
+          <div class="pref-label">System Name</div>
+          <div class="pref-desc">The name displayed throughout the system</div>
+        </div>
+        <input
+          type="text"
+          class="form-control"
+          style="width: 250px"
+          name="system_name"
+          value="UniKit - Laptop Rental System"
+          placeholder="System name"
+        />
+      </div>
+
+      <div class="pref-row">
+        <div>
+          <div class="pref-label">Company/University Name</div>
+          <div class="pref-desc">Your organization name</div>
+        </div>
+        <input
+          type="text"
+          class="form-control"
+          style="width: 250px"
+          name="company_name"
+          value="MIIT"
+          placeholder="University name"
+        />
+      </div>
+
+      <div class="pref-row">
+        <div>
+          <div class="pref-label">Default Language</div>
+          <div class="pref-desc">System interface language</div>
+        </div>
+        <select class="pref-select" name="language">
+          <option value="en" selected>English</option>
+          <option value="my">Myanmar (Burmese)</option>
+          <option value="jp">Japanese</option>
+          <option value="kr">Korean</option>
+        </select>
+      </div>
+
+      <div class="pref-row">
+        <div>
+          <div class="pref-label">Date Format</div>
+          <div class="pref-desc">How dates are displayed</div>
+        </div>
+        <select class="pref-select" name="date_format">
+          <option value="Y-m-d" selected>2024-03-08 (YYYY-MM-DD)</option>
+          <option value="d/m/Y">08/03/2024 (DD/MM/YYYY)</option>
+          <option value="m/d/Y">03/08/2024 (MM/DD/YYYY)</option>
+          <option value="F j, Y">March 8, 2024</option>
+        </select>
+      </div>
+
+      <div class="pref-row">
+        <div>
+          <div class="pref-label">Time Zone</div>
+          <div class="pref-desc">System time zone</div>
+        </div>
+        <select class="pref-select" name="timezone">
+          <option value="Asia/Yangon" selected>Asia/Yangon (UTC+6:30)</option>
+          <option value="Asia/Bangkok">Asia/Bangkok (UTC+7:00)</option>
+          <option value="Asia/Singapore">Asia/Singapore (UTC+8:00)</option>
+          <option value="UTC">UTC (UTC+0:00)</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Notification Settings -->
+    <div class="pref-section">
+      <div class="pref-header">
+        <div class="pref-icon">
+          <i class="fas fa-bell"></i>
+        </div>
+        <div>
+          <h3 class="pref-title">Notification Settings</h3>
+          <p class="pref-subtitle">Configure email and system notifications</p>
+        </div>
+      </div>
+
+      <div class="pref-row">
+        <div>
+          <div class="pref-label">Email Notifications</div>
+          <div class="pref-desc">
+            Send email notifications for system events
+          </div>
+        </div>
+        <label class="switch">
+          <input type="checkbox" name="email_notifications" checked />
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="pref-row">
+        <div>
+          <div class="pref-label">Laptop Assignment Alerts</div>
+          <div class="pref-desc">Notify when laptops are assigned</div>
+        </div>
+        <label class="switch">
+          <input type="checkbox" name="assignment_alerts" checked />
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="pref-row">
+        <div>
+          <div class="pref-label">Overdue Return Alerts</div>
+          <div class="pref-desc">Alert when laptops are overdue</div>
+        </div>
+        <label class="switch">
+          <input type="checkbox" name="overdue_alerts" checked />
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="pref-row">
+        <div>
+          <div class="pref-label">Daily Summary Report</div>
+          <div class="pref-desc">Receive daily summary via email</div>
+        </div>
+        <label class="switch">
+          <input type="checkbox" name="daily_summary" />
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="pref-row">
+        <div>
+          <div class="pref-label">Notification Email</div>
+          <div class="pref-desc">Email address for notifications</div>
+        </div>
+        <input
+          type="email"
+          class="form-control"
+          style="width: 250px"
+          name="notification_email"
+          value="{{ user.outlook_mail }}"
+          placeholder="admin@miit.edu.mm"
+        />
+      </div>
+    </div>
+
+    <!-- Laptop Management Settings -->
+    <div class="pref-section">
+      <div class="pref-header">
+        <div class="pref-icon">
+          <i class="fas fa-laptop"></i>
+        </div>
+        <div>
+          <h3 class="pref-title">Laptop Management</h3>
+          <p class="pref-subtitle">Configure laptop rental rules</p>
+        </div>
+      </div>
+
+      <div class="pref-row">
+        <div>
+          <div class="pref-label">Default Rental Period (Days)</div>
+          <div class="pref-desc">
+            How long a laptop can be rented by default
+          </div>
+        </div>
+        <input
+          type="number"
+          class="number-input"
+          name="default_rental_days"
+          value="14"
+          min="1"
+          max="365"
+        />
+      </div>
+
+      <div class="pref-row">
+        <div>
+          <div class="pref-label">Maximum Rental Period (Days)</div>
+          <div class="pref-desc">Maximum days a laptop can be rented</div>
+        </div>
+        <input
+          type="number"
+          class="number-input"
+          name="max_rental_days"
+          value="30"
+          min="1"
+          max="365"
+        />
+      </div>
+
+      <div class="pref-row">
+        <div>
+          <div class="pref-label">Allow Multiple Rentals</div>
+          <div class="pref-desc">Allow students to rent multiple laptops</div>
+        </div>
+        <label class="switch">
+          <input type="checkbox" name="multiple_rentals" />
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="pref-row">
+        <div>
+          <div class="pref-label">Auto-assign Serial Numbers</div>
+          <div class="pref-desc">Automatically generate serial numbers</div>
+        </div>
+        <label class="switch">
+          <input type="checkbox" name="auto_serial" checked />
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="pref-row">
+        <div>
+          <div class="pref-label">Serial Number Prefix</div>
+          <div class="pref-desc">Prefix for auto-generated serial numbers</div>
+        </div>
+        <input
+          type="text"
+          class="form-control"
+          style="width: 150px"
+          name="serial_prefix"
+          value="LP-"
+          placeholder="LP-"
+        />
+      </div>
+    </div>
+
+    <!-- Security Settings -->
+    <div class="pref-section">
+      <div class="pref-header">
+        <div class="pref-icon">
+          <i class="fas fa-shield-alt"></i>
+        </div>
+        <div>
+          <h3 class="pref-title">Security Settings</h3>
+          <p class="pref-subtitle">Configure security and access control</p>
+        </div>
+      </div>
+
+      <div class="pref-row">
+        <div>
+          <div class="pref-label">Session Timeout (Minutes)</div>
+          <div class="pref-desc">Auto logout after inactivity</div>
+        </div>
+        <input
+          type="number"
+          class="number-input"
+          name="session_timeout"
+          value="30"
+          min="5"
+          max="480"
+        />
+      </div>
+
+      <div class="pref-row">
+        <div>
+          <div class="pref-label">Password Minimum Length</div>
+          <div class="pref-desc">Minimum characters for passwords</div>
+        </div>
+        <input
+          type="number"
+          class="number-input"
+          name="password_min_length"
+          value="8"
+          min="6"
+          max="20"
+        />
+      </div>
+
+      <div class="pref-row">
+        <div>
+          <div class="pref-label">Require Strong Password</div>
+          <div class="pref-desc">
+            Require uppercase, numbers and special chars
+          </div>
+        </div>
+        <label class="switch">
+          <input type="checkbox" name="strong_password" checked />
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="pref-row">
+        <div>
+          <div class="pref-label">Login Attempts Limit</div>
+          <div class="pref-desc">Max failed attempts before lockout</div>
+        </div>
+        <input
+          type="number"
+          class="number-input"
+          name="login_attempts"
+          value="5"
+          min="3"
+          max="10"
+        />
+      </div>
+
+      <div class="pref-row">
+        <div>
+          <div class="pref-label">Enable Two-Factor Authentication</div>
+          <div class="pref-desc">Require 2FA for all staff</div>
+        </div>
+        <label class="switch">
+          <input type="checkbox" name="require_2fa" />
+          <span class="slider"></span>
+        </label>
+      </div>
+    </div>
+
+    <!-- Appearance Settings -->
+    <div class="pref-section">
+      <div class="pref-header">
+        <div class="pref-icon">
+          <i class="fas fa-paint-brush"></i>
+        </div>
+        <div>
+          <h3 class="pref-title">Appearance</h3>
+          <p class="pref-subtitle">Customize the look and feel</p>
+        </div>
+      </div>
+
+      <div class="pref-row">
+        <div>
+          <div class="pref-label">Theme</div>
+          <div class="pref-desc">Choose color theme</div>
+        </div>
+        <select class="pref-select" name="theme">
+          <option value="default" selected>Default Blue</option>
+          <option value="dark">Dark Mode</option>
+          <option value="light">Light Mode</option>
+          <option value="purple">Purple</option>
+          <option value="green">Green</option>
+        </select>
+      </div>
+
+      <div class="pref-row">
+        <div>
+          <div class="pref-label">Primary Color</div>
+          <div class="pref-desc">Main brand color</div>
+        </div>
+        <div class="color-picker">
+          <input
+            type="color"
+            class="color-input"
+            name="primary_color"
+            value="#5b72b5"
+          />
+          <span class="pref-value">#5b72b5</span>
+        </div>
+      </div>
+
+      <div class="pref-row">
+        <div>
+          <div class="pref-label">Table Rows Per Page</div>
+          <div class="pref-desc">Number of rows in data tables</div>
+        </div>
+        <select class="pref-select" name="rows_per_page">
+          <option value="10" selected>10</option>
+          <option value="25">25</option>
+          <option value="50">50</option>
+          <option value="100">100</option>
+        </select>
+      </div>
+
+      <div class="pref-row">
+        <div>
+          <div class="pref-label">Compact Mode</div>
+          <div class="pref-desc">Show more items with less spacing</div>
+        </div>
+        <label class="switch">
+          <input type="checkbox" name="compact_mode" />
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="pref-row">
+        <div>
+          <div class="pref-label">Show Animations</div>
+          <div class="pref-desc">Enable UI animations</div>
+        </div>
+        <label class="switch">
+          <input type="checkbox" name="animations" checked />
+          <span class="slider"></span>
+        </label>
+      </div>
+    </div>
+
+    <!-- Data Management -->
+    <div class="pref-section">
+      <div class="pref-header">
+        <div class="pref-icon">
+          <i class="fas fa-database"></i>
+        </div>
+        <div>
+          <h3 class="pref-title">Data Management</h3>
+          <p class="pref-subtitle">Configure data retention and backup</p>
+        </div>
+      </div>
+
+      <div class="pref-row">
+        <div>
+          <div class="pref-label">Keep Audit Logs (Days)</div>
+          <div class="pref-desc">How long to keep audit logs</div>
+        </div>
+        <input
+          type="number"
+          class="number-input"
+          name="audit_log_retention"
+          value="90"
+          min="30"
+          max="365"
+        />
+      </div>
+
+      <div class="pref-row">
+        <div>
+          <div class="pref-label">Auto Backup</div>
+          <div class="pref-desc">Automatically backup database</div>
+        </div>
+        <label class="switch">
+          <input type="checkbox" name="auto_backup" checked />
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="pref-row">
+        <div>
+          <div class="pref-label">Backup Frequency</div>
+          <div class="pref-desc">How often to backup</div>
+        </div>
+        <select class="pref-select" name="backup_frequency">
+          <option value="daily" selected>Daily</option>
+          <option value="weekly">Weekly</option>
+          <option value="monthly">Monthly</option>
+        </select>
+      </div>
+
+      <div class="pref-row">
+        <div>
+          <div class="pref-label">Export Data Format</div>
+          <div class="pref-desc">Default format for data export</div>
+        </div>
+        <div class="radio-group">
+          <label class="radio-option">
+            <input type="radio" name="export_format" value="csv" checked />
+            <span>CSV</span>
+          </label>
+          <label class="radio-option">
+            <input type="radio" name="export_format" value="excel" />
+            <span>Excel</span>
+          </label>
+          <label class="radio-option">
+            <input type="radio" name="export_format" value="pdf" />
+            <span>PDF</span>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="pref-actions">
+      <button type="button" class="btn btn-outline" onclick="resetToDefault()">
+        <i class="fas fa-undo"></i> Reset to Default
+      </button>
+      <button type="submit" class="btn btn-primary">
+        <i class="fas fa-save"></i> Save Preferences
+      </button>
+    </div>
+  </form>
+</div>
+
+<script>
+  // Auto-hide messages after 5 seconds
+  function autoHideMessages() {
+    const messages = document.querySelectorAll(".message");
+    messages.forEach((message, index) => {
+      setTimeout(() => {
+        if (message.parentElement) {
+          message.style.animation = "slideIn 0.3s reverse";
+          setTimeout(() => {
+            if (message.parentElement) {
+              message.remove();
+            }
+          }, 300);
+        }
+      }, 5000 + index * 1000);
+    });
+  }
+
+  // Reset to default function
+  function resetToDefault() {
+    if (
+      confirm(
+        "Are you sure you want to reset all preferences to default values?"
+      )
+    ) {
+      // Set default values
+      document.querySelector('input[name="system_name"]').value =
+        "UniKit - Laptop Rental System";
+      document.querySelector('input[name="company_name"]').value = "MIIT";
+      document.querySelector('select[name="language"]').value = "en";
+      document.querySelector('select[name="date_format"]').value = "Y-m-d";
+      document.querySelector('select[name="timezone"]').value = "Asia/Yangon";
+
+      // Reset checkboxes
+      document.querySelector(
+        'input[name="email_notifications"]'
+      ).checked = true;
+      document.querySelector('input[name="assignment_alerts"]').checked = true;
+      document.querySelector('input[name="overdue_alerts"]').checked = true;
+      document.querySelector('input[name="daily_summary"]').checked = false;
+
+      // Reset numbers
+      document.querySelector('input[name="default_rental_days"]').value = 14;
+      document.querySelector('input[name="max_rental_days"]').value = 30;
+      document.querySelector('input[name="session_timeout"]').value = 30;
+      document.querySelector('input[name="password_min_length"]').value = 8;
+      document.querySelector('input[name="login_attempts"]').value = 5;
+
+      // Show success message
+      showMessage("Preferences reset to default values", "success");
+    }
+  }
+
+  // Show message function
+  function showMessage(text, type) {
+    const container = document.querySelector(".message-container");
+    if (!container) {
+      const newContainer = document.createElement("div");
+      newContainer.className = "message-container";
+      document.body.appendChild(newContainer);
+    }
+
+    const messageDiv = document.createElement("div");
+    messageDiv.className = `message message-${type}`;
+    messageDiv.innerHTML = `
+            <i class="fas fa-${
+              type === "success" ? "check-circle" : "info-circle"
+            }"></i>
+            <span>${text}</span>
+            <i class="fas fa-times message-close" onclick="this.parentElement.remove()"></i>
+        `;
+
+    document.querySelector(".message-container").appendChild(messageDiv);
+
+    setTimeout(() => {
+      if (messageDiv.parentElement) {
+        messageDiv.style.animation = "slideIn 0.3s reverse";
+        setTimeout(() => {
+          if (messageDiv.parentElement) {
+            messageDiv.remove();
+          }
+        }, 300);
+      }
+    }, 5000);
+  }
+
+  // Color picker sync
+  document.querySelectorAll(".color-input").forEach((input) => {
+    input.addEventListener("input", function () {
+      const valueSpan = this.nextElementSibling;
+      if (valueSpan && valueSpan.classList.contains("pref-value")) {
+        valueSpan.textContent = this.value;
+      }
+    });
+  });
+
+  document.addEventListener("DOMContentLoaded", function () {
+    autoHideMessages();
+  });
+</script>
+
+{% endblock %}

@@ -1,0 +1,255 @@
+{% extends 'home.html' %}<!--
+-->{% block title %}Account Settings - UniKit{% endblock %}<!--
+-->{% block content %} {% if messages %}
+
+<div style="margin-bottom: 20px">
+  {% for message in messages %}
+  <div
+    class="alert alert-{% if message.tags == 'error' %}danger{% else %}success{% endif %}"
+    style="padding: 15px; border-radius: 8px; margin-bottom: 10px"
+  >
+    <i
+      class="fas fa-{% if message.tags == 'error' %}exclamation-circle{% else %}check-circle{% endif %}"
+    ></i>
+    {{ message }}
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<div class="content-header">
+  <div>
+    <h1 class="page-title">Account Settings</h1>
+    <p class="page-subtitle">Manage your account security and preferences</p>
+  </div>
+  <div class="action-buttons">
+    <button class="btn btn-outline" onclick="window.history.back()">
+      <i class="fas fa-arrow-left"></i> Back
+    </button>
+  </div>
+</div>
+
+<div class="data-section">
+  <h2 class="section-title" style="margin-bottom: 30px">Change Password</h2>
+
+  <form method="post" action="{% url 'rental_system:change_password' %}">
+    {% csrf_token %}
+
+    <div class="form-group">
+      <label class="form-label">Current Password</label>
+      <input
+        type="password"
+        class="form-control"
+        name="current_password"
+        required
+      />
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">New Password</label>
+        <input
+          type="password"
+          class="form-control"
+          name="new_password"
+          required
+        />
+        <small style="color: var(--text-muted); font-size: 12px"
+          >Minimum 8 characters with at least one number and one letter</small
+        >
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Confirm New Password</label>
+        <input
+          type="password"
+          class="form-control"
+          name="confirm_password"
+          required
+        />
+      </div>
+    </div>
+
+    <button type="submit" class="btn btn-primary">
+      <i class="fas fa-key"></i> Update Password
+    </button>
+  </form>
+</div>
+
+<div class="data-section" style="margin-top: 30px">
+  <h2 class="section-title" style="margin-bottom: 30px">Security Settings</h2>
+
+  <div style="margin-bottom: 25px">
+    <div
+      style="
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+      "
+    >
+      <div>
+        <h4 style="color: var(--text-primary); margin-bottom: 5px">
+          Two-Factor Authentication
+        </h4>
+        <p style="color: var(--text-muted); font-size: 14px">
+          Add an extra layer of security to your account
+        </p>
+      </div>
+      <label class="switch">
+        <input type="checkbox" id="twoFactorToggle" />
+        <span class="slider round"></span>
+      </label>
+    </div>
+  </div>
+
+  <div style="margin-bottom: 25px">
+    <div
+      style="
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+      "
+    >
+      <div>
+        <h4 style="color: var(--text-primary); margin-bottom: 5px">
+          Login Notifications
+        </h4>
+        <p style="color: var(--text-muted); font-size: 14px">
+          Get notified about new sign-ins to your account
+        </p>
+      </div>
+      <label class="switch">
+        <input type="checkbox" id="notificationToggle" checked />
+        <span class="slider round"></span>
+      </label>
+    </div>
+  </div>
+</div>
+
+<div
+  class="data-section"
+  style="margin-top: 30px; border-color: rgba(231, 76, 60, 0.3)"
+>
+  <h2 class="section-title" style="color: #e74c3c; margin-bottom: 20px">
+    Danger Zone
+  </h2>
+
+  <div
+    style="display: flex; justify-content: space-between; align-items: center"
+  >
+    <div>
+      <h4 style="color: var(--text-primary); margin-bottom: 5px">
+        Deactivate Account
+      </h4>
+      <p style="color: var(--text-muted); font-size: 14px">
+        Once you deactivate, you will lose access to the system
+      </p>
+    </div>
+    <button
+      class="btn btn-outline"
+      style="border-color: #e74c3c; color: #e74c3c"
+      onclick="confirmDeactivate()"
+    >
+      <i class="fas fa-exclamation-triangle"></i> Deactivate
+    </button>
+  </div>
+</div>
+
+<style>
+  /* Alert Messages */
+  .alert {
+    padding: 15px 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .alert-success {
+    background: rgba(39, 174, 96, 0.1);
+    border: 1px solid #27ae60;
+    color: #27ae60;
+  }
+
+  .alert-danger {
+    background: rgba(231, 76, 60, 0.1);
+    border: 1px solid #e74c3c;
+    color: #e74c3c;
+  }
+
+  .alert i {
+    font-size: 1.2rem;
+  }
+
+  /* Toggle Switch */
+  .switch {
+    position: relative;
+    display: inline-block;
+    width: 50px;
+    height: 24px;
+  }
+
+  .switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+
+  .slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc;
+    transition: 0.4s;
+  }
+
+  .slider:before {
+    position: absolute;
+    content: "";
+    height: 20px;
+    width: 20px;
+    left: 2px;
+    bottom: 2px;
+    background-color: white;
+    transition: 0.4s;
+  }
+
+  input:checked + .slider {
+    background-color: var(--blue);
+  }
+
+  input:focus + .slider {
+    box-shadow: 0 0 1px var(--blue);
+  }
+
+  input:checked + .slider:before {
+    transform: translateX(26px);
+  }
+
+  .slider.round {
+    border-radius: 34px;
+  }
+
+  .slider.round:before {
+    border-radius: 50%;
+  }
+</style>
+
+<script>
+  function confirmDeactivate() {
+    if (
+      confirm(
+        "Are you sure you want to deactivate your account? This action cannot be undone."
+      )
+    ) {
+      window.location.href = "{% url 'rental_system:deactivate_account' %}";
+    }
+  }
+</script>
+{% endblock %}

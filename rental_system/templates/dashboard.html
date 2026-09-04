@@ -1,0 +1,136 @@
+{% extends 'home.html' %} {% block content %}
+
+<!-- Dashboard Tab -->
+<div id="dashboard" class="content-tabs active">
+  <div
+    class="content-header"
+    style="
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    "
+  >
+    <div>
+      <h1 class="page-title">Dashboard</h1>
+      <p style="color: #666">Overview of Laptop Rental System</p>
+    </div>
+    <button class="btn btn-primary" onclick="switchTab('assign')">
+      <i class="fas fa-plus"></i> Quick Assign
+    </button>
+  </div>
+
+  <div class="cards-grid">
+    <div class="card">
+      <h3>Total Laptops</h3>
+      <div class="card-value">{{ total_laptops }}</div>
+    </div>
+    <div class="card">
+      <h3>Available Now</h3>
+      <div class="card-value">{{ available_laptops }}</div>
+    </div>
+    <div class="card">
+      <h3>Under Repair</h3>
+      <div class="card-value">{{ repair_laptops }}</div>
+    </div>
+    <div class="card">
+      <h3>Active Rentals</h3>
+      <div class="card-value">{{ active_rentals }}</div>
+    </div>
+    <div class="card">
+      <h3>Students</h3>
+      <div class="card-value">{{ total_students }}</div>
+    </div>
+  </div>
+</div>
+
+<!-- Students Tab (Includes the file you requested) -->
+<div id="students" class="content-tabs">
+  <div class="content-header">
+    <h1 class="page-title">Student Management</h1>
+    <button class="btn btn-primary">
+      <i class="fas fa-plus"></i> Add Student
+    </button>
+  </div>
+
+  <div class="data-section">
+    <h2>Student List</h2>
+    <div class="table-responsive">
+      <table class="data-table" id="studentsTable">
+        <thead>
+          <tr>
+            <th>Student ID</th>
+            <th>Name</th>
+            <th>Email</th>
+            <th>Department</th>
+            <th>Batch</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- This INCLUDES the separate file you wanted -->
+          {% include 'rental/partials/student_list.html' %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Inventory Tab (Includes the file you requested) -->
+<div id="inventory" class="content-tabs">
+  <div class="content-header">
+    <h1 class="page-title">Laptop Inventory</h1>
+    <button class="btn btn-primary">
+      <i class="fas fa-plus"></i> Add Laptop
+    </button>
+  </div>
+
+  <div class="data-section">
+    <div
+      style="display: flex; justify-content: space-between; margin-bottom: 15px"
+    >
+      <h2>All Laptops</h2>
+      <div>
+        <button class="btn btn-sm" style="border: 1px solid #ccc">All</button>
+        <button class="btn btn-sm" style="border: 1px solid #ccc">
+          Available
+        </button>
+        <button class="btn btn-sm" style="border: 1px solid #ccc">
+          Assigned
+        </button>
+      </div>
+    </div>
+
+    <div class="table-responsive">
+      <table class="data-table" id="inventoryTable">
+        <thead>
+          <tr>
+            <th>Serial No</th>
+            <th>Brand & Model</th>
+            <th>MAC Address</th>
+            <th>Condition</th>
+            <th>Status</th>
+            <th>Assigned To</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- This INCLUDES the separate file you wanted -->
+          {% include 'rental/partials/inventory_list.html' %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Assign Tab Placeholder -->
+<div id="assign" class="content-tabs">
+  <div class="content-header">
+    <h1 class="page-title">Assign Laptop</h1>
+  </div>
+  <div class="data-section">
+    <p>Assignment form goes here...</p>
+  </div>
+</div>
+
+{% endblock %}

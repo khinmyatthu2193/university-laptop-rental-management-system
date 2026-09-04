@@ -1,0 +1,1113 @@
+{% extends "home.html" %}
+{% block content %}
+
+<div class="student-page">
+  <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
+    <div>
+      <h2 class="page-title mb-1">Student Management</h2>
+      <p class="text-muted mb-0">Manage student profiles and laptop assignment status.</p>
+    </div>
+
+    <div class="d-flex align-items-center gap-2 flex-wrap">
+      <div class="btn-group view-toggle">
+        <a href="?view=table&major={{ request.GET.major }}&batch={{ request.GET.batch }}&sort={{ request.GET.sort|default:'newest' }}{% if search_query %}&search={{ search_query }}{% endif %}"
+           class="btn btn-sm {% if view != 'card' %}btn-dark active{% else %}btn-outline-secondary{% endif %}">
+          <i class="fas fa-table me-1"></i>Table
+        </a>
+        <a href="?view=card&major={{ request.GET.major }}&batch={{ request.GET.batch }}&sort={{ request.GET.sort|default:'newest' }}{% if search_query %}&search={{ search_query }}{% endif %}"
+           class="btn btn-sm {% if view == 'card' %}btn-dark active{% else %}btn-outline-secondary{% endif %}">
+          <i class="fas fa-th-large me-1"></i>Cards
+        </a>
+      </div>
+
+      <button type="button" class="btn btn-upload-excel" id="openImportStudentBtn">
+        <i class="fa-solid fa-file-arrow-up me-2"></i>Import Excel
+      </button>
+
+      <button type="button" class="btn btn-add-record" id="openAddStudentBtn">
+        <i class="fas fa-plus me-2"></i>Add Student
+      </button>
+    </div>
+  </div>
+
+  <form method="get" class="filter-row mb-4">
+    <input type="hidden" name="view" value="{{ view }}">
+    <input type="hidden" name="sort" value="{{ request.GET.sort|default:'newest' }}">
+    {% if search_query %}
+      <input type="hidden" name="search" value="{{ search_query }}">
+    {% endif %}
+
+    <div class="filter-item">
+      <label class="form-label filter-label">Major</label>
+      <select name="major" class="form-select filter-input">
+        <option value="">All Majors</option>
+        {% for m in majors %}
+          <option value="{{ m }}" {% if request.GET.major == m %}selected{% endif %}>{{ m }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="filter-item">
+      <label class="form-label filter-label">Batch Year</label>
+      <select name="batch" class="form-select filter-input">
+        <option value="">All Batches</option>
+        {% for y in years %}
+          <option value="{{ y }}" {% if request.GET.batch == y|stringformat:"s" %}selected{% endif %}>{{ y }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="filter-btn-wrap">
+      <button type="submit" class="btn w-100 filter-btn">Apply</button>
+    </div>
+
+    <div class="filter-reset-wrap">
+      <a href="?view={{ view }}{% if search_query %}&search={{ search_query }}{% endif %}" class="btn btn-reset-filter w-100">
+        Reset
+      </a>
+    </div>
+  </form>
+
+  <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <h4 class="mb-0 section-title">Students <span class="text-muted">({{ students|length }})</span></h4>
+
+    <form method="get" class="staff-sort-form d-flex align-items-center gap-2">
+      <input type="hidden" name="view" value="{{ view }}">
+      <input type="hidden" name="major" value="{{ request.GET.major }}">
+      <input type="hidden" name="batch" value="{{ request.GET.batch }}">
+      {% if search_query %}
+        <input type="hidden" name="search" value="{{ search_query }}">
+      {% endif %}
+
+      <label class="small text-muted fw-semibold mb-0">Sort by</label>
+      <select name="sort" class="form-select form-select-sm staff-sort-select" onchange="this.form.submit()">
+        <option value="newest" {% if request.GET.sort == 'newest' or not request.GET.sort %}selected{% endif %}>Newest</option>
+        <option value="oldest" {% if request.GET.sort == 'oldest' %}selected{% endif %}>Oldest</option>
+        <option value="az" {% if request.GET.sort == 'az' %}selected{% endif %}>A–Z</option>
+        <option value="za" {% if request.GET.sort == 'za' %}selected{% endif %}>Z–A</option>
+      </select>
+    </form>
+  </div>
+
+  {% if view == "card" %}
+  <div class="row g-4">
+    {% for s in students %}
+    <div class="col-xl-4 col-md-6">
+      <div class="card record-card h-100">
+        <div class="card-body p-4">
+          <div class="d-flex justify-content-between align-items-start mb-3">
+            <div>
+              <h5 class="fw-bold mb-1">{{ s.full_name }}</h5>
+              <p class="text-muted small mb-0">{{ s.student_id }}</p>
+            </div>
+            <span class="badge bg-info text-dark">{{ s.major }}</span>
+          </div>
+
+          <div class="info-pair mb-2">
+            <span class="text-muted">Batch Year</span>
+            <span class="fw-semibold">{{ s.batch_year }}</span>
+          </div>
+
+          <div class="info-pair mb-3">
+            <span class="text-muted">Laptop</span>
+            <span class="fw-semibold">
+              {% if s.laptop %}
+                {{ s.laptop.SerialNumber }}
+              {% else %}
+                Not Assigned
+              {% endif %}
+            </span>
+          </div>
+
+          <div class="action-buttons mt-3">
+            <button type="button" class="btn btn-sm btn-icon btn-view view-btn" data-student-id="{{ s.id }}" title="View">
+              <i class="fas fa-eye"></i>
+            </button>
+            <button type="button" class="btn btn-sm btn-icon btn-edit edit-btn" data-student-id="{{ s.id }}" title="Edit">
+              <i class="fas fa-edit"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% empty %}
+    <div class="col-12">
+      <div class="empty-box text-center">
+        <i class="fas fa-user-graduate fa-2x mb-3 text-muted"></i>
+        <p class="mb-0 text-muted">No students found.</p>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="card table-shell border-0 shadow-sm">
+    <div class="table-responsive">
+      <table class="table align-middle mb-0 record-table">
+        <thead>
+          <tr>
+            <th style="width:80px;">No.</th>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Major</th>
+            <th>Batch</th>
+            <th>Laptop</th>
+            <th class="text-center" style="width:130px;">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in students %}
+          <tr>
+            <td class="text-muted">{{ forloop.counter }}</td>
+            <td>{{ s.student_id }}</td>
+            <td>
+              <div class="fw-bold">{{ s.full_name }}</div>
+            </td>
+            <td><span class="badge bg-info text-dark">{{ s.major }}</span></td>
+            <td><span class="badge bg-dark">{{ s.batch_year }}</span></td>
+            <td>
+              {% if s.laptop %}
+                <span class="badge bg-success">{{ s.laptop.SerialNumber }}</span>
+              {% else %}
+                <span class="badge bg-secondary">Not Assigned</span>
+              {% endif %}
+            </td>
+            <td class="text-center">
+              <div class="action-buttons justify-content-center">
+                <button type="button" class="btn btn-sm btn-icon btn-view view-btn" data-student-id="{{ s.id }}" title="View">
+                  <i class="fas fa-eye"></i>
+                </button>
+                <button type="button" class="btn btn-sm btn-icon btn-edit edit-btn" data-student-id="{{ s.id }}" title="Edit">
+                  <i class="fas fa-edit"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="7" class="text-center text-muted py-4">No students found.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+<!-- ADD STUDENT POPUP -->
+<div class="record-popup-overlay" id="addStudentPopup">
+  <div class="record-popup-panel">
+    <form method="post" action="{% url 'rental_system:student_create' %}" class="record-form h-100 d-flex flex-column" data-student-pk="">
+      {% csrf_token %}
+
+      <div class="record-popup-header">
+        <h5 class="mb-0 fw-bold">
+          <i class="fas fa-user-plus me-2"></i>Add New Student
+        </h5>
+        <button type="button" class="record-popup-close" data-close-popup="addStudentPopup">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+
+      <div class="record-popup-body">
+        <div class="form-section-inner">
+          <div class="form-block">
+            <h6 class="form-block-title">Student Information</h6>
+            <div class="row g-4">
+              <div class="col-md-6">
+                <label class="form-label fw-semibold">Student ID *</label>
+                <input type="text" name="student_id" class="form-control soft-input" placeholder="e.g. 2021-MIIT-CSE-001" required>
+              </div>
+
+              <div class="col-md-6">
+                <label class="form-label fw-semibold">Full Name *</label>
+                <input type="text" name="full_name" class="form-control soft-input" placeholder="e.g. Aung Aung" required>
+              </div>
+
+              <div class="col-md-6">
+                <label class="form-label fw-semibold">Email *</label>
+                <input type="email" name="email" class="form-control soft-input student-email-input" placeholder="name@miit.edu.mm" required>
+              </div>
+
+              <div class="col-md-6">
+                <label class="form-label fw-semibold">Phone</label>
+                <input type="text" name="phone" class="form-control soft-input" placeholder="09xxxxxxxxx">
+              </div>
+
+              <div class="col-md-6">
+                <label class="form-label fw-semibold">Major *</label>
+                <select name="major" class="form-select soft-input" required>
+                  <option value="">Select Major</option>
+                  {% for m in majors %}
+                    <option value="{{ m }}">{{ m }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+
+              <div class="col-md-6">
+                <label class="form-label fw-semibold">Batch Year *</label>
+                <select name="batch_year" class="form-select soft-input" required>
+                  <option value="">Select Year</option>
+                  {% for y in years %}
+                    <option value="{{ y }}">{{ y }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="record-popup-footer">
+        <button type="button" class="btn btn-outline-secondary" data-close-popup="addStudentPopup">Cancel</button>
+        <button type="submit" class="btn btn-success">
+          <i class="fas fa-save me-1"></i>Save Student
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- IMPORT STUDENT EXCEL POPUP -->
+<div class="record-popup-overlay" id="importStudentPopup">
+  <div class="record-popup-panel" style="max-width: 700px; height: auto;">
+    <form method="post" action="{% url 'rental_system:import_students' %}" enctype="multipart/form-data" class="import-form d-flex flex-column">
+      {% csrf_token %}
+
+      <div class="record-popup-header">
+        <h5 class="mb-0 fw-bold">
+          <i class="fas fa-file-excel me-2"></i>Import Students from Excel
+        </h5>
+        <button type="button" class="record-popup-close" data-close-popup="importStudentPopup">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+
+      <div class="record-popup-body">
+        <div class="form-section-inner">
+          <div class="form-block">
+            <h6 class="form-block-title">Upload Excel File</h6>
+
+            <div class="mb-3">
+              <label class="form-label fw-semibold">Choose .xlsx file</label>
+              <input type="file" name="file" class="form-control soft-input" accept=".xlsx,.xls" required>
+            </div>
+
+            <div class="alert alert-info mb-0">
+              <strong>Required columns:</strong><br>
+              <code>student_id, full_name, email, phone, major, batch_year</code>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="record-popup-footer">
+        <button type="button" class="btn btn-outline-secondary" data-close-popup="importStudentPopup">Cancel</button>
+        <button type="submit" class="btn btn-success">
+          <i class="fas fa-upload me-1"></i>Upload Excel
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const studentsData = {
+        {% for s in students %}
+        "{{ s.id }}": {
+            id: "{{ s.id }}",
+            student_id: "{{ s.student_id|escapejs }}",
+            full_name: "{{ s.full_name|escapejs }}",
+            email: "{{ s.email|escapejs }}",
+            phone: "{{ s.phone|default:''|escapejs }}",
+            major: "{{ s.major|escapejs }}",
+            batch_year: "{{ s.batch_year|escapejs }}",
+            laptop: {% if s.laptop %}{
+                SerialNumber: "{{ s.laptop.SerialNumber|escapejs }}",
+                brand: "{{ s.laptop.brand|default:''|escapejs }}",
+                name: "{{ s.laptop.name|default:''|escapejs }}",
+                status: "{{ s.laptop.status|default:''|escapejs }}"
+            }{% else %}null{% endif %}
+        }{% if not forloop.last %},{% endif %}
+        {% endfor %}
+    };
+
+    const majors = [
+        {% for m in majors %}
+        "{{ m|escapejs }}"{% if not forloop.last %},{% endif %}
+        {% endfor %}
+    ];
+
+    const years = [
+        {% for y in years %}
+        "{{ y }}"{% if not forloop.last %},{% endif %}
+        {% endfor %}
+    ];
+    const studentUpdateUrlTemplate = "{% url 'rental_system:student_update' 0 %}";
+
+    function normalize(value) {
+        return (value || '').trim().toLowerCase();
+    }
+
+    function isMiitEmail(value) {
+        return /^[^@\s]+@miit\.edu\.mm$/i.test((value || '').trim());
+    }
+
+    function hasDuplicateStudentId(studentId, currentPk = '') {
+        const target = normalize(studentId);
+        return Object.values(studentsData).some(student =>
+            String(student.id) !== String(currentPk) &&
+            normalize(student.student_id) === target
+        );
+    }
+
+    function hasDuplicateEmail(email, currentPk = '') {
+        const target = normalize(email);
+        return Object.values(studentsData).some(student =>
+            String(student.id) !== String(currentPk) &&
+            normalize(student.email) === target
+        );
+    }
+
+    function openPopup(id) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.classList.add('active');
+        document.body.classList.add('popup-open');
+    }
+
+    function closePopup(id) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.classList.remove('active');
+        if (!document.querySelector('.record-popup-overlay.active')) {
+            document.body.classList.remove('popup-open');
+        }
+    }
+
+    document.getElementById('openAddStudentBtn')?.addEventListener('click', function() {
+        openPopup('addStudentPopup');
+    });
+
+    document.getElementById('openImportStudentBtn')?.addEventListener('click', function() {
+        openPopup('importStudentPopup');
+    });
+
+    document.addEventListener('click', function(e) {
+        const closeBtn = e.target.closest('[data-close-popup]');
+        if (closeBtn) {
+            closePopup(closeBtn.getAttribute('data-close-popup'));
+            return;
+        }
+
+        const overlay = e.target.closest('.record-popup-overlay');
+        if (overlay && e.target === overlay) {
+            overlay.classList.remove('active');
+            if (!document.querySelector('.record-popup-overlay.active')) {
+                document.body.classList.remove('popup-open');
+            }
+        }
+    });
+
+    function createViewOffcanvas(student) {
+        const offcanvasId = `viewStudent${student.id}`;
+        const existing = document.getElementById(offcanvasId);
+        if (existing) existing.remove();
+
+        const laptopInfo = student.laptop ? `
+            <div class="card mb-4 shadow-sm">
+                <div class="card-header section-header">
+                    <i class="fas fa-laptop me-2"></i>Laptop Information
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-5 text-muted">Serial Number:</div>
+                        <div class="col-7 fw-bold">${student.laptop.SerialNumber}</div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-5 text-muted">Brand:</div>
+                        <div class="col-7">${student.laptop.brand || '—'}</div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-5 text-muted">Model:</div>
+                        <div class="col-7">${student.laptop.name || '—'}</div>
+                    </div>
+                    <div class="row mb-0">
+                        <div class="col-5 text-muted">Status:</div>
+                        <div class="col-7">
+                            <span class="badge bg-${student.laptop.status === 'Available' ? 'success' :
+                                                  student.laptop.status === 'Assigned' ? 'primary' :
+                                                  student.laptop.status === 'In Repair' ? 'warning' : 'danger'}">
+                                ${student.laptop.status}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        ` : `
+            <div class="card mb-4 shadow-sm">
+                <div class="card-header section-header">
+                    <i class="fas fa-laptop me-2"></i>Laptop Information
+                </div>
+                <div class="card-body">
+                    <p class="text-muted text-center py-3 mb-0">No laptop assigned to this student.</p>
+                </div>
+            </div>
+        `;
+
+        const offcanvasHtml = `
+            <div class="offcanvas offcanvas-end custom-offcanvas" id="${offcanvasId}" tabindex="-1">
+                <div class="offcanvas-header custom-offcanvas-header">
+                    <h5 class="offcanvas-title fw-bold">${student.full_name}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+                </div>
+
+                <div class="offcanvas-body custom-offcanvas-body">
+                    <div class="mb-4 text-center">
+                        ${student.laptop
+                            ? '<span class="badge bg-success p-3 w-100" style="font-size:1rem;">✅ Laptop Assigned</span>'
+                            : '<span class="badge bg-secondary p-3 w-100" style="font-size:1rem;">❌ No Laptop Assigned</span>'}
+                    </div>
+
+                    <div class="card mb-4 shadow-sm">
+                        <div class="card-header section-header">
+                            <i class="fas fa-user me-2"></i>Basic Information
+                        </div>
+                        <div class="card-body">
+                            <div class="row mb-3">
+                                <div class="col-5 text-muted">Student ID:</div>
+                                <div class="col-7 fw-bold">${student.student_id}</div>
+                            </div>
+                            <div class="row mb-3">
+                                <div class="col-5 text-muted">Full Name:</div>
+                                <div class="col-7">${student.full_name}</div>
+                            </div>
+                            <div class="row mb-3">
+                                <div class="col-5 text-muted">Email:</div>
+                                <div class="col-7">${student.email}</div>
+                            </div>
+                            <div class="row mb-0">
+                                <div class="col-5 text-muted">Phone:</div>
+                                <div class="col-7">${student.phone || '—'}</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card mb-4 shadow-sm">
+                        <div class="card-header section-header">
+                            <i class="fas fa-graduation-cap me-2"></i>Academic Information
+                        </div>
+                        <div class="card-body">
+                            <div class="row mb-3">
+                                <div class="col-5 text-muted">Major:</div>
+                                <div class="col-7"><span class="badge bg-info text-dark">${student.major}</span></div>
+                            </div>
+                            <div class="row mb-0">
+                                <div class="col-5 text-muted">Batch Year:</div>
+                                <div class="col-7"><span class="badge bg-dark">${student.batch_year}</span></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    ${laptopInfo}
+                </div>
+
+                <div class="offcanvas-footer custom-offcanvas-footer">
+                    <div class="d-flex gap-2 justify-content-end">
+                        <button class="btn btn-secondary" data-bs-dismiss="offcanvas">
+                            <i class="fas fa-times me-1"></i>Close
+                        </button>
+                        <button class="btn btn-outline-primary edit-from-view" data-student-id="${student.id}">
+                            <i class="fas fa-edit me-1"></i>Edit Student
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.insertAdjacentHTML('beforeend', offcanvasHtml);
+        return new bootstrap.Offcanvas(document.getElementById(offcanvasId));
+    }
+
+    function createEditPopup(student) {
+        const popupId = `editStudentPopup${student.id}`;
+        const existing = document.getElementById(popupId);
+        if (existing) existing.remove();
+
+        const updateAction = studentUpdateUrlTemplate.replace('/0/', `/${student.id}/`);
+
+        const majorOptions = majors.map(m =>
+            `<option value="${m}" ${student.major === m ? 'selected' : ''}>${m}</option>`
+        ).join('');
+
+        const yearOptions = years.map(y =>
+            `<option value="${y}" ${String(student.batch_year) === String(y) ? 'selected' : ''}>${y}</option>`
+        ).join('');
+
+        const popupHtml = `
+            <div class="record-popup-overlay" id="${popupId}">
+                <div class="record-popup-panel">
+                    <form method="post" action="${updateAction}" class="record-form h-100 d-flex flex-column" data-student-pk="${student.id}">
+                        {% csrf_token %}
+
+                        <div class="record-popup-header">
+                            <h5 class="mb-0 fw-bold">
+                                <i class="fas fa-edit me-2"></i>Edit Student: ${student.full_name}
+                            </h5>
+                            <button type="button" class="record-popup-close" data-close-popup="${popupId}">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+
+                        <div class="record-popup-body">
+                            <div class="form-section-inner">
+                                <div class="form-block">
+                                    <h6 class="form-block-title">Student Information</h6>
+                                    <div class="row g-4">
+                                        <div class="col-md-6">
+                                            <label class="form-label fw-semibold">Student ID *</label>
+                                            <input type="text" name="student_id" class="form-control soft-input" value="${student.student_id}" required>
+                                        </div>
+
+                                        <div class="col-md-6">
+                                            <label class="form-label fw-semibold">Full Name *</label>
+                                            <input type="text" name="full_name" class="form-control soft-input" value="${student.full_name}" required>
+                                        </div>
+
+                                        <div class="col-md-6">
+                                            <label class="form-label fw-semibold">Email *</label>
+                                            <input type="email" name="email" class="form-control soft-input student-email-input" value="${student.email}" required>
+                                        </div>
+
+                                        <div class="col-md-6">
+                                            <label class="form-label fw-semibold">Phone</label>
+                                            <input type="text" name="phone" class="form-control soft-input" value="${student.phone || ''}">
+                                        </div>
+
+                                        <div class="col-md-6">
+                                            <label class="form-label fw-semibold">Major *</label>
+                                            <select name="major" class="form-select soft-input" required>
+                                                <option value="">Select Major</option>
+                                                ${majorOptions}
+                                            </select>
+                                        </div>
+
+                                        <div class="col-md-6">
+                                            <label class="form-label fw-semibold">Batch Year *</label>
+                                            <select name="batch_year" class="form-select soft-input" required>
+                                                <option value="">Select Year</option>
+                                                ${yearOptions}
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="record-popup-footer">
+                            <button type="button" class="btn btn-outline-secondary" data-close-popup="${popupId}">Cancel</button>
+                            <button type="submit" class="btn btn-success">
+                                <i class="fas fa-save me-1"></i>Update Student
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        `;
+
+        document.body.insertAdjacentHTML('beforeend', popupHtml);
+        return popupId;
+    }
+
+    document.querySelectorAll('.view-btn').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            const studentId = this.getAttribute('data-student-id');
+            const student = studentsData[studentId];
+            if (!student) return;
+            const offcanvas = createViewOffcanvas(student);
+            offcanvas.show();
+        });
+    });
+
+    document.querySelectorAll('.edit-btn').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            const studentId = this.getAttribute('data-student-id');
+            const student = studentsData[studentId];
+            if (!student) return;
+            const popupId = createEditPopup(student);
+            openPopup(popupId);
+        });
+    });
+
+    document.addEventListener('click', function(e) {
+        const btn = e.target.closest('.edit-from-view');
+        if (!btn) return;
+
+        const studentId = btn.getAttribute('data-student-id');
+        const student = studentsData[studentId];
+        if (!student) return;
+
+        const offcanvasElement = btn.closest('.offcanvas');
+        if (offcanvasElement) {
+            const offcanvas = bootstrap.Offcanvas.getInstance(offcanvasElement);
+            if (offcanvas) offcanvas.hide();
+        }
+
+        setTimeout(() => {
+            const popupId = createEditPopup(student);
+            openPopup(popupId);
+        }, 250);
+    });
+
+    document.addEventListener('submit', function(e) {
+    const form = e.target;
+    if (!form.classList.contains('record-form')) return;
+
+    const studentIdInput = form.querySelector('input[name="student_id"]');
+    const emailInput = form.querySelector('input[name="email"]');
+
+    // Skip student validation for import form
+    if (!studentIdInput && !emailInput) {
+        return;
+    }
+
+    const currentPk = form.dataset.studentPk || '';
+    const studentIdValue = studentIdInput ? studentIdInput.value : '';
+    const emailValue = emailInput ? emailInput.value : '';
+
+    if (emailInput && !isMiitEmail(emailValue)) {
+        e.preventDefault();
+        alert('We only accept MIIT Outlook mail (miit.edu.mm).');
+        emailInput.focus();
+        return;
+    }
+
+    if (studentIdInput && hasDuplicateStudentId(studentIdValue, currentPk)) {
+        e.preventDefault();
+        alert('This Student ID already exists.');
+        studentIdInput.focus();
+        return;
+    }
+
+    if (emailInput && hasDuplicateEmail(emailValue, currentPk)) {
+        e.preventDefault();
+        alert('This email already exists.');
+        emailInput.focus();
+        return;
+    }
+});
+
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            document.querySelectorAll('.record-popup-overlay.active').forEach(p => p.classList.remove('active'));
+            if (!document.querySelector('.record-popup-overlay.active')) {
+                document.body.classList.remove('popup-open');
+            }
+        }
+    });
+});
+</script>
+
+<style>
+:root {
+    --light-blue: #cce3f3;
+    --blue: #5b72b5;
+    --sky-blue: #89adda;
+    --yellow-gold: #dde659;
+    --purple-dark: #362e90;
+}
+
+body.popup-open {
+    overflow: hidden;
+}
+
+.page-title {
+    font-size: 2.2rem;
+    font-weight: 800;
+    color: #362e90;
+}
+
+.section-title {
+    font-weight: 700;
+    color: #172b4d;
+}
+
+.btn-add-record {
+    background: linear-gradient(135deg, #5867d8, #362e90);
+    color: #fff;
+    border: none;
+    border-radius: 999px;
+    padding: 10px 22px;
+    font-weight: 700;
+}
+
+.btn-add-record:hover {
+    color: #fff;
+    opacity: 0.95;
+}
+
+.btn-upload-excel {
+    background: linear-gradient(135deg, #1d976c, #147a55);
+    color: #fff;
+    border: none;
+    border-radius: 999px;
+    padding: 10px 22px;
+    font-weight: 700;
+}
+
+.btn-upload-excel:hover {
+    color: #fff;
+    opacity: 0.95;
+}
+
+.filter-row {
+    display: grid;
+    grid-template-columns: 1.3fr 1.3fr 180px 140px;
+    gap: 16px;
+    align-items: end;
+    margin-bottom: 28px;
+}
+
+.filter-label {
+    font-weight: 700;
+    color: #3e557f;
+    font-size: 0.95rem;
+    margin-bottom: 8px;
+}
+
+.filter-input {
+    border-radius: 999px;
+    min-height: 54px;
+    border: 1px solid #d7dfeb;
+    background: rgba(255,255,255,0.92);
+    box-shadow: none;
+}
+
+.filter-input:focus,
+.soft-input:focus,
+.form-control:focus,
+.form-select:focus {
+    border-color: var(--yellow-gold);
+    box-shadow: 0 0 0 0.18rem rgba(221, 230, 89, 0.25);
+}
+
+.filter-btn {
+    min-height: 54px;
+    border-radius: 999px;
+    font-weight: 700;
+    border: none !important;
+    color: #fff !important;
+    background: linear-gradient(135deg, #5867d8, #362e90) !important;
+}
+
+.filter-btn:hover {
+    color: #fff !important;
+    background: linear-gradient(135deg, #5362d1, #2f2785) !important;
+}
+
+.btn-reset-filter {
+    min-height: 54px;
+    border-radius: 999px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    font-weight: 700;
+    color: #6a768b;
+    background: rgba(255,255,255,0.78);
+    border: 1px solid #d7dfeb;
+}
+
+.btn-reset-filter:hover {
+    color: #172b4d;
+    background: #fff;
+}
+
+.staff-sort-form {
+    margin-left: auto;
+}
+
+.staff-sort-select {
+    min-width: 130px;
+    border-radius: 999px;
+    border: 1px solid #d7dfeb;
+    background: rgba(255,255,255,0.92);
+    font-weight: 600;
+    color: #172b4d;
+    padding-left: 14px;
+    padding-right: 36px;
+    box-shadow: none;
+}
+
+.staff-sort-select:focus {
+    border-color: var(--yellow-gold);
+    box-shadow: 0 0 0 0.18rem rgba(221, 230, 89, 0.25);
+}
+
+.table-shell {
+    border-radius: 22px;
+    overflow: hidden;
+}
+
+.record-table thead th {
+    background: #f8fbff;
+    font-weight: 800;
+    border-bottom: 1px solid #e5edf8;
+    color: #172b4d;
+}
+
+.record-table tbody tr:hover {
+    background: #fafcff;
+}
+
+.record-card {
+    border: none;
+    border-radius: 20px;
+    box-shadow: 0 10px 30px rgba(91, 114, 181, 0.12);
+    transition: all 0.25s ease;
+}
+
+.record-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 16px 32px rgba(91, 114, 181, 0.18);
+}
+
+.info-pair {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    padding-bottom: 6px;
+}
+
+.empty-box {
+    padding: 50px 20px;
+    border-radius: 18px;
+    background: rgba(255,255,255,0.85);
+    border: 1px dashed #d7deea;
+}
+
+.action-buttons {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.btn-icon {
+    width: 38px;
+    height: 38px;
+    padding: 0;
+    border-radius: 10px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.95rem;
+}
+
+.btn-view {
+    color: #6c757d;
+    border: 1px solid #d9dee8;
+    background: #fff;
+}
+
+.btn-view:hover {
+    color: #fff;
+    background: #6c757d;
+    border-color: #6c757d;
+}
+
+.btn-edit {
+    color: #0d6efd;
+    border: 1px solid #cfe0ff;
+    background: #fff;
+}
+
+.btn-edit:hover {
+    color: #fff;
+    background: #0d6efd;
+    border-color: #0d6efd;
+}
+
+.record-popup-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(14, 25, 44, 0.45);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    z-index: 2000;
+}
+
+.record-popup-overlay.active {
+    display: flex;
+}
+
+.record-popup-panel {
+    width: min(920px, 96vw);
+    height: min(92vh, 900px);
+    max-height: 92vh;
+    background: #f7fbff;
+    border-radius: 24px;
+    overflow: hidden;
+    box-shadow: 0 24px 60px rgba(37, 45, 89, 0.28);
+    display: flex;
+    flex-direction: column;
+    margin: 0 auto;
+}
+
+.record-popup-panel form {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+}
+
+.record-popup-header {
+    background: linear-gradient(135deg, var(--light-blue), var(--sky-blue));
+    border-bottom: 2px solid var(--yellow-gold);
+    padding: 1.2rem 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    color: var(--purple-dark);
+    flex-shrink: 0;
+}
+
+.record-popup-close {
+    border: none;
+    background: transparent;
+    color: #52607a;
+    font-size: 1.6rem;
+    line-height: 1;
+    padding: 0;
+}
+
+.record-popup-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 1.5rem 1.75rem;
+    background: #f7fbff;
+}
+
+.record-popup-footer {
+    padding: 1rem 1.5rem;
+    border-top: 1px solid rgba(0,0,0,0.08);
+    background: #f7fbff;
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    flex-shrink: 0;
+}
+
+.form-section-inner {
+    max-width: 760px;
+    margin: 0 auto;
+}
+
+.form-block-title {
+    color: var(--purple-dark);
+    font-weight: 800;
+    font-size: 1.35rem;
+    margin-bottom: 18px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #dbe4f0;
+}
+
+.soft-input {
+    border-radius: 999px;
+    min-height: 56px;
+    background: rgba(255,255,255,0.92);
+    border: 1px solid #e0e7f1;
+    padding-left: 1rem;
+    padding-right: 1rem;
+}
+
+.custom-offcanvas {
+    width: 450px !important;
+    background: rgba(255,255,255,0.98);
+    backdrop-filter: blur(10px);
+}
+
+.custom-offcanvas-header {
+    border-bottom: 2px solid var(--yellow-gold);
+    background: linear-gradient(135deg, var(--light-blue), var(--sky-blue));
+    color: var(--purple-dark);
+}
+
+.custom-offcanvas-body {
+    padding: 20px;
+    overflow-y: auto;
+    height: calc(100vh - 140px);
+}
+
+.custom-offcanvas-footer {
+    padding: 16px;
+    border-top: 1px solid rgba(0,0,0,0.08);
+    background: #f8f9fb;
+}
+
+.section-header {
+    background: var(--light-blue);
+    color: var(--purple-dark);
+    font-weight: 700;
+}
+
+.badge {
+    padding: 8px 12px;
+    font-weight: 600;
+}
+
+@media (max-width: 1200px) {
+    .filter-row {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+@media (max-width: 768px) {
+    .page-title {
+        font-size: 1.8rem;
+    }
+
+    .filter-row {
+        grid-template-columns: 1fr;
+    }
+
+    .staff-sort-form {
+        width: 100%;
+        justify-content: flex-start;
+        margin-left: 0;
+    }
+
+    .staff-sort-select {
+        min-width: 150px;
+    }
+
+    .custom-offcanvas {
+        width: 100% !important;
+    }
+
+    .record-popup-overlay {
+        padding: 10px;
+    }
+
+    .record-popup-panel {
+        width: 100%;
+        max-height: 94vh;
+        border-radius: 18px;
+    }
+
+    .record-popup-body {
+        padding: 1rem;
+    }
+
+    .record-popup-footer {
+        padding: 0.9rem 1rem;
+    }
+}
+</style>
+
+{% endblock %}

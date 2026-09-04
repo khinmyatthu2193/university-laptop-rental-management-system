@@ -1,0 +1,584 @@
+{% extends "home.html" %}
+{% block content %}
+<div class="content-header mb-4">
+  <h1 class="page-title">Returns</h1>
+  
+</div>
+
+<div class="cards-grid mb-4">
+  <div class="card">
+    <div class="card-title">Completed Returns</div>
+    <div class="card-value">{{ completed_returns_count }}</div>
+  </div>
+  <div class="card">
+    <div class="card-title">Overdue Assignments</div>
+    <div class="card-value">{{ overdue_count }}</div>
+  </div>
+  <div class="card">
+    <div class="card-title">Annual Return Due Date</div>
+    <div class="card-value">{{ annual_due_date|default:"Not Set" }}</div>
+  </div>
+</div>
+
+<div class="data-section">
+  <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <h2 class="section-title mb-0">Annual Return Due Date</h2>
+  </div>
+  <form method="post" class="row g-2 align-items-end mb-4">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="set_annual_due_date">
+    <div class="col-md-4">
+      <label class="form-label">Set Due Date</label>
+      <input type="date" class="form-control" name="annual_due_date" value="{{ annual_due_date|date:'Y-m-d' }}">
+    </div>
+    <div class="col-md-auto">
+      <button type="submit" class="btn btn-primary">Save Due Date</button>
+    </div>
+    <div class="col-12">
+      <small class="text-muted">Assignments that pass this due date without annual/complete return are marked as Overdue.</small>
+    </div>
+  </form>
+</div>
+
+<div class="data-section">
+  <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <h2 class="section-title mb-0">Assigned Laptops (Return Actions for Students)</h2>
+    <span class="text-muted">Showing {{ assigned_records_count }}</span>
+  </div>
+
+  <form method="get" class="filter-row mb-3">
+    <div class="row g-2 align-items-end">
+      <div class="col-md-4">
+        <label class="form-label">Search (Name / Serial)</label>
+        <input type="text" name="search" class="form-control" value="{{ search_query }}" placeholder="e.g. Aung or LT-0007">
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">Status</label>
+        <select name="status" class="form-select">
+          <option value="all" {% if status_filter == 'all' %}selected{% endif %}>All</option>
+          <option value="overdue" {% if status_filter == 'overdue' %}selected{% endif %}>Overdue</option>
+          <option value="issued" {% if status_filter == 'issued' %}selected{% endif %}>Issued</option>
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">Batch</label>
+        <select name="batch" class="form-select">
+          <option value="">All Batches</option>
+          {% for y in batch_years %}
+            <option value="{{ y }}" {% if batch_filter == y %}selected{% endif %}>{{ y }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">&nbsp;</label>
+        <button type="submit" class="btn btn-primary w-100">Apply</button>
+      </div>
+      <div class="col-md-2 d-grid">
+        <label class="form-label">&nbsp;</label>
+        <a href="?" class="btn btn-outline-secondary w-100">Reset</a>
+      </div>
+    </div>
+    <div class="d-flex gap-2 mt-2">
+      <a href="?status=overdue" class="btn btn-sm btn-outline-danger">Overdue Only</a>
+    </div>
+  </form>
+
+  <div class="table-responsive">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Name</th>
+          <th>Laptop</th>
+          <th>Due Date</th>
+          <th>Status</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in assigned_records %}
+        <tr>
+          <td>{{ r.person_type }}</td>
+          <td>{{ r.name }}</td>
+          <td>{{ r.laptop_label }}</td>
+          <td>{{ r.expected_return_date|default:"-" }}</td>
+          <td>
+            {% if r.assignment_status == "Overdue" %}
+              <span class="badge bg-danger">Overdue</span>
+            {% else %}
+              <span class="badge bg-primary">Issued</span>
+            {% endif %}
+          </td>
+          <td>
+            <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="{% if r.owner_type == 'staff' %}#returnStaffModal{{ r.owner_id }}{% else %}#returnStudentModal{{ r.owner_id }}{% endif %}">
+              Return
+            </button>
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="6" class="text-center text-muted">No active assignments available for return.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="data-section">
+  <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <h2 class="section-title mb-0">Return Action for Staffs</h2>
+    <span class="text-muted">Showing {{ assigned_staff_assignments|length }}</span>
+  </div>
+
+  <form method="get" class="filter-row mb-3">
+    <div class="row g-2 align-items-end">
+      <div class="col-md-4">
+        <label class="form-label">Search (Name / Serial)</label>
+        <input type="text" name="staff_search" class="form-control" value="{{ staff_search }}" placeholder="e.g. John or LT-0007">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">Department</label>
+        <select name="staff_department" class="form-select">
+          <option value="">All Departments</option>
+          {% for val, label in departments %}
+            <option value="{{ val }}" {% if staff_department == val %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">&nbsp;</label>
+        <button type="submit" class="btn btn-primary w-100">Apply</button>
+      </div>
+      <div class="col-md-2 d-grid">
+        <label class="form-label">&nbsp;</label>
+        <a href="{% url 'rental_system:return_laptop_list' %}" class="btn btn-outline-secondary w-100">Reset</a>
+      </div>
+    </div>
+  </form>
+
+  <div class="table-responsive">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Name</th>
+          <th>Laptop</th>
+          <th>Status</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for a in assigned_staff_assignments %}
+        <tr>
+          <td>{{ a.person.person_type }}</td>
+          <td>{{ a.person.name }}</td>
+          <td>{{ a.laptop.SerialNumber }} - {{ a.laptop.brand }} {{ a.laptop.name }}</td>
+          <td>
+            {% if a.assignment_status == "Overdue" %}
+              <span class="badge bg-danger">Overdue</span>
+            {% else %}
+              <span class="badge bg-primary">Issued</span>
+            {% endif %}
+          </td>
+          <td>
+            <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#returnStaffModal{{ a.person.staff.id }}">
+              Return
+            </button>
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="5" class="text-center text-muted">No staff assignments available for return.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="data-section">
+  <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <h2 class="section-title mb-0">Completed Return History</h2>  
+  </div>
+
+  <form method="get" class="filter-row mb-3">
+    <div class="row g-2 align-items-end">
+      <div class="col-md-4">
+        <label class="form-label">Search (Name / Serial / Roll No)</label>
+        <input type="text" name="history_search" class="form-control" value="{{ history_search }}" placeholder="e.g. Aung, LT-0007, or 12345">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">Batch Year</label>
+        <select name="history_batch" class="form-select">
+          <option value="">All Batches</option>
+          {% for b in history_batches %}
+            <option value="{{ b }}" {% if history_batch == b %}selected{% endif %}>{{ b }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">&nbsp;</label>
+        <button type="submit" class="btn btn-primary w-100">Apply</button>
+      </div>
+      <div class="col-md-2 d-grid">
+        <label class="form-label">&nbsp;</label>
+        <a href="{% url 'rental_system:return_laptop_list' %}" class="btn btn-outline-secondary w-100">Reset</a>
+      </div>
+    </div>
+  </form>
+
+  <div class="table-responsive">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Name</th>
+          <th>Laptop</th>
+          <th>Returned On</th>
+          <th>Inventory Status</th>
+          <th>Remark</th>
+          <th>Replace</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for a in completed_returns %}
+        <tr>
+          <td>{{ a.person.person_type }}</td>
+          <td>{{ a.person.name }}</td>
+          <td>{{ a.laptop.SerialNumber }} - {{ a.laptop.brand }} {{ a.laptop.name }}</td>
+          <td>{{ a.actual_return_date }}</td>
+          <td>
+            {% if a.laptop.status == "Available" %}
+              <span class="badge bg-success">Available</span>
+            {% elif a.laptop.status == "In Repair" %}
+              <span class="badge bg-warning text-dark">In Repair</span>
+            {% elif a.laptop.status == "Damage" %}
+              <span class="badge bg-danger">Damage</span>
+            {% else %}
+              <span class="badge bg-primary">{{ a.laptop.status }}</span>
+            {% endif %}
+          </td>
+          <td>{{ a.display_remark }}</td>
+          <td>
+            {% if a.replace_status == 'Yes' %}
+              <span class="badge bg-success">Yes</span>
+            {% else %}
+              <span class="badge bg-secondary">No</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="7" class="text-center text-muted">No completed returns yet.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% for s in assigned_students %}
+<div class="modal fade return-modal" id="returnStudentModal{{ s.id }}" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-centered return-modal-dialog">
+    <div class="modal-content return-modal-content">
+      <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="process_return">
+        <input type="hidden" name="owner_type" value="student">
+        <input type="hidden" name="owner_id" value="{{ s.id }}">
+        <div class="modal-header return-modal-header">
+          <h5 class="modal-title">Laptop Return - {{ s.laptop.SerialNumber }}</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body return-modal-body">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Student</label>
+              <input class="form-control" value="{{ s.full_name }}" disabled>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Laptop</label>
+              <input class="form-control" value="{{ s.laptop.SerialNumber }} - {{ s.laptop.brand }} {{ s.laptop.name }}" disabled>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Return Type</label>
+              <select name="return_type" class="form-select" required>
+                <option value="annual">Annual Return (Keep Assigned)</option>
+                <option value="complete" selected>Complete Return (Set Available)</option>
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Condition on Return</label>
+              <select name="condition" class="form-select" required>
+                <option value="Excellent">Excellent</option>
+                <option value="Good">Good</option>
+                <option value="Needs Repair">Needs Repair</option>
+                <option value="Damaged">Damaged</option>
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Brand</label>
+              <input name="brand" class="form-control" value="{{ s.laptop.brand }}">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Model Name</label>
+              <input name="name" class="form-control" value="{{ s.laptop.name }}">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Processor Gen</label>
+              <input name="processor_gen" class="form-control" value="{{ s.laptop.processor_gen }}">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">RAM</label>
+              <input name="ram" class="form-control" value="{{ s.laptop.ram }}">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Storage</label>
+              <input name="storage" class="form-control" value="{{ s.laptop.storage }}">
+            </div>
+            <div class="col-md-4 d-flex align-items-end">
+              <div class="form-check mb-2">
+                <input class="form-check-input" type="checkbox" name="replace" id="replaceStudent{{ s.id }}">
+                <label class="form-check-label" for="replaceStudent{{ s.id }}">Replace</label>
+              </div>
+            </div>
+            <div class="col-12">
+              <label class="form-label">Remark</label>
+              <input name="remark" class="form-control" value="{{ s.laptop.remark }}" placeholder="Update laptop remark if needed">
+            </div>
+            <div class="col-12">
+              <label class="form-label">Return Notes</label>
+              <textarea name="notes" class="form-control" rows="3" placeholder="Document condition changes, missing accessories, scratches, or anything checked during return..."></textarea>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer return-modal-footer">
+          <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-success">Submit Return</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endfor %}
+
+{% for a in assigned_staff_assignments %}
+<div class="modal fade return-modal" id="returnStaffModal{{ a.person.staff.id }}" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-centered return-modal-dialog">
+    <div class="modal-content return-modal-content">
+      <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="process_return">
+        <input type="hidden" name="owner_type" value="staff">
+        <input type="hidden" name="owner_id" value="{{ a.person.staff.id }}">
+        <div class="modal-header return-modal-header">
+          <h5 class="modal-title">Laptop Return - {{ a.laptop.SerialNumber }}</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body return-modal-body">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Staff</label>
+              <input class="form-control" value="{{ a.person.name }}" disabled>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Laptop</label>
+              <input class="form-control" value="{{ a.laptop.SerialNumber }} - {{ a.laptop.brand }} {{ a.laptop.name }}" disabled>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Return Type</label>
+              <select name="return_type" class="form-select" required>
+                <option value="complete" selected>Complete Return (Set Available)</option>
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Condition on Return</label>
+              <select name="condition" class="form-select" required>
+                <option value="Excellent">Excellent</option>
+                <option value="Good">Good</option>
+                <option value="Needs Repair">Needs Repair</option>
+                <option value="Damaged">Damaged</option>
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Brand</label>
+              <input name="brand" class="form-control" value="{{ a.laptop.brand }}">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Model Name</label>
+              <input name="name" class="form-control" value="{{ a.laptop.name }}">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Processor Gen</label>
+              <input name="processor_gen" class="form-control" value="{{ a.laptop.processor_gen }}">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">RAM</label>
+              <input name="ram" class="form-control" value="{{ a.laptop.ram }}">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Storage</label>
+              <input name="storage" class="form-control" value="{{ a.laptop.storage }}">
+            </div>
+            <div class="col-md-4 d-flex align-items-end">
+              <div class="form-check mb-2">
+                <input class="form-check-input" type="checkbox" name="replace" id="replaceStaff{{ a.person.staff.id }}">
+                <label class="form-check-label" for="replaceStaff{{ a.person.staff.id }}">Replace</label>
+              </div>
+            </div>
+            <div class="col-12">
+              <label class="form-label">Remark</label>
+              <input name="remark" class="form-control" value="{{ a.laptop.remark }}" placeholder="Update laptop remark if needed">
+            </div>
+            <div class="col-12">
+              <label class="form-label">Return Notes</label>
+              <textarea name="notes" class="form-control" rows="3" placeholder="Document condition changes, missing accessories, scratches, or anything checked during return..."></textarea>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer return-modal-footer">
+          <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-success">Submit Return</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endfor %}
+
+{% if selected_owner_type and selected_owner_id %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const modalId = '{{ selected_owner_type }}' === 'staff'
+    ? 'returnStaffModal{{ selected_owner_id }}'
+    : 'returnStudentModal{{ selected_owner_id }}';
+  const el = document.getElementById(modalId);
+  if (el && window.bootstrap) {
+    new bootstrap.Modal(el).show();
+  }
+});
+</script>
+{% endif %}
+
+<style>
+:root {
+    --light-blue: #cce3f3;
+    --sky-blue: #89adda;
+    --yellow-gold: #dde659;
+    --purple-dark: #362e90;
+}
+
+.return-modal .modal-backdrop,
+.return-modal + .modal-backdrop {
+    backdrop-filter: blur(2px);
+}
+
+.return-modal.modal {
+    background: transparent !important;
+    width: 100% !important;
+    max-width: none !important;
+    max-height: none !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    overflow: hidden !important;
+    box-shadow: none !important;
+}
+
+.return-modal-dialog {
+    max-width: 980px;
+    margin: 1.75rem auto !important;
+}
+
+.return-modal .modal-dialog-centered {
+    min-height: calc(100% - 3.5rem) !important;
+}
+
+.return-modal-content {
+    border: 0;
+    border-radius: 24px;
+    overflow: hidden;
+    background: #f7fbff;
+    box-shadow: 0 24px 60px rgba(37, 45, 89, 0.28);
+}
+
+.return-modal-header {
+    background: linear-gradient(135deg, var(--light-blue), var(--sky-blue));
+    border-bottom: 2px solid var(--yellow-gold);
+    color: var(--purple-dark);
+    padding: 1.1rem 1.5rem;
+}
+
+.return-modal-body {
+    padding: 1.3rem 1.5rem 1.4rem;
+    max-height: 72vh;
+    overflow-y: auto;
+}
+
+.return-modal-body .form-label {
+    font-weight: 700;
+    color: #3e557f;
+}
+
+.return-modal-body .form-control,
+.return-modal-body .form-select,
+.return-modal-body textarea {
+    border-radius: 999px;
+    min-height: 52px;
+    border: 1px solid #e0e7f1;
+    background: rgba(255, 255, 255, 0.92);
+    padding-left: 1rem;
+    padding-right: 1rem;
+}
+
+.return-modal-body textarea {
+    border-radius: 20px;
+    min-height: 110px;
+    padding-top: 0.85rem;
+    padding-bottom: 0.85rem;
+}
+
+.return-modal-body .form-control:focus,
+.return-modal-body .form-select:focus,
+.return-modal-body textarea:focus {
+    border-color: var(--yellow-gold);
+    box-shadow: 0 0 0 0.18rem rgba(221, 230, 89, 0.25);
+}
+
+.return-modal-footer {
+    border-top: 1px solid rgba(0, 0, 0, 0.08);
+    background: #f7fbff;
+    padding: 0.95rem 1.4rem 1.1rem;
+}
+
+.return-modal-footer .btn {
+    border-radius: 999px;
+    min-height: 44px;
+    padding-left: 1rem;
+    padding-right: 1rem;
+    font-weight: 700;
+}
+
+.return-modal-footer .btn-success {
+    border: none;
+    background: linear-gradient(135deg, #5867d8, #362e90);
+}
+
+@media (max-width: 768px) {
+    .return-modal-dialog {
+        margin: 0.6rem;
+    }
+
+    .return-modal-content {
+        border-radius: 18px;
+    }
+
+    .return-modal-body {
+        padding: 1rem;
+        max-height: 74vh;
+    }
+}
+</style>
+{% endblock %}
+
+
