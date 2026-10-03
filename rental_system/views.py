@@ -1,8 +1,15 @@
 from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib.auth import logout
+from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
 from django.http import HttpResponse, JsonResponse
-from django.contrib.auth.hashers import make_password, check_password
-from .models import Student, Laptop, ManagementStaff, Person, LaptopAssignment, AuditLog, Staff, RepairLog
+from django.contrib.auth.models import User
+from django.contrib.auth.password_validation import validate_password
+from django.core.cache import cache
+from django.core.exceptions import ValidationError
+from django.db import IntegrityError
+from .models import (
+    Student, Laptop, ManagementStaff, Person, LaptopAssignment, AuditLog,
+    Staff, RepairLog, SystemPreference,
+)
 from .forms import StudentForm, LaptopForm
 from django.urls import reverse
 from django.contrib import messages
@@ -10,10 +17,22 @@ from django.db.models import Q
 from django.utils import timezone
 from django.db import transaction
 import pandas as pd
+import hashlib
 import re
 from datetime import datetime
 
 ACTIVE_ASSIGNMENT_STATUSES = ('Issued', 'Overdue')
+MAX_IMPORT_BYTES = 5 * 1024 * 1024
+
+
+def validate_excel_upload(upload):
+    if upload is None:
+        return 'Please choose an Excel file.'
+    if not upload.name.lower().endswith('.xlsx'):
+        return 'Only .xlsx files are supported.'
+    if upload.size > MAX_IMPORT_BYTES:
+        return 'The Excel file must be 5 MB or smaller.'
+    return None
 
 
 def refresh_overdue_assignments(reference_date=None):
@@ -292,28 +311,37 @@ def quick_assign(request):
         expected_return_date = request.POST.get('expected_return_date')
         academic_year = request.POST.get('academic_year')
         
-        # Get the objects
-        person = get_object_or_404(Person, id=person_id)
-        laptop = get_object_or_404(Laptop, id=laptop_id)
-        
-        is_assignable, error_message = validate_laptop_is_assignable(laptop)
-        if not is_assignable:
-            messages.error(request, error_message)
+        try:
+            issue_date_value = datetime.strptime(issue_date, '%Y-%m-%d').date()
+            return_date_value = datetime.strptime(expected_return_date, '%Y-%m-%d').date()
+        except (TypeError, ValueError):
+            messages.error(request, 'Enter valid issue and return dates.')
+            return redirect('rental_system:home')
+        if return_date_value < issue_date_value:
+            messages.error(request, 'The expected return date cannot be before the issue date.')
             return redirect('rental_system:home')
 
-        # Create the assignment
-        assignment = LaptopAssignment.objects.create(
-            person=person,
-            laptop=laptop,
-            issue_date=issue_date,
-            expected_return_date=expected_return_date,
-            academic_year=academic_year,
-            assignment_status='Issued'
-        )
-        
-        # Update laptop status
-        laptop.status = 'Assigned'
-        laptop.save()
+        try:
+            with transaction.atomic():
+                person = get_object_or_404(Person, id=person_id, status='Active')
+                laptop = get_object_or_404(Laptop.objects.select_for_update(), id=laptop_id)
+                is_assignable, error_message = validate_laptop_is_assignable(laptop)
+                if not is_assignable:
+                    raise ValueError(error_message)
+
+                LaptopAssignment.objects.create(
+                    person=person,
+                    laptop=laptop,
+                    issue_date=issue_date_value,
+                    expected_return_date=return_date_value,
+                    academic_year=academic_year,
+                    assignment_status='Issued',
+                )
+                laptop.status = 'Assigned'
+                laptop.save(update_fields=['status'])
+        except (IntegrityError, ValueError):
+            messages.error(request, 'That person or laptop already has an active assignment.')
+            return redirect('rental_system:home')
         
         messages.success(request, f'Laptop assigned to {person.name} successfully!')
         return redirect('rental_system:home')
@@ -321,129 +349,116 @@ def quick_assign(request):
     return redirect('rental_system:home')
 
 def logout_view(request):
-    """Logs the user out by clearing the session."""
-    try:
-        del request.session['staff_id']
-    except KeyError:
-        pass
+    """Log out through a CSRF-protected POST request."""
+    logout(request)
     return redirect('rental_system:login')
 
 def login_view(request):
-    """
-    Handles the LOGIN logic using Outlook Email instead of username.
-    """
-    if request.method == 'POST':
-        email_input = request.POST.get('email', '').strip().lower()  # Get email
-        password = request.POST.get('password', '').strip()
-        
-        print("=" * 60)
-        print("LOGIN ATTEMPT")
-        print(f"Email entered: {email_input}")
-        print(f"Password entered: {password}")
-        
-        # Validation
-        if not email_input or not password:
-            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                return JsonResponse({
-                    'success': False,
-                    'error': 'Please enter both email and password.'
-                })
-            return render(request, 'login.html', {
-                'error': 'Please enter both email and password.'
-            })
-        
-        # Validate MIIT email format
-        if not email_input.endswith('@miit.edu.mm'):
-            error_msg = 'Please use a valid MIIT Outlook email (@miit.edu.mm).'
-            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                return JsonResponse({
-                    'success': False,
-                    'error': error_msg
-                })
-            return render(request, 'login.html', {'error': error_msg})
-        
+    """Authenticate an active management account by MIIT email address."""
+    if request.user.is_authenticated:
         try:
-            # Find staff by outlook_mail (email) instead of username
-            staff = ManagementStaff.objects.get(outlook_mail__iexact=email_input)
-            print(f"User found in DB: {staff.username}")
-            print(f"User email: {staff.outlook_mail}")
-            print(f"User status: {staff.status}")
-            print(f"DB Password Hash starts with: {staff.password[:20]}...")
-            
-            # Check password
-            password_match = check_password(password, staff.password)
-            print(f"Password match result: {password_match}")
-            
-            if password_match:
-                print("PASSWORD MATCH! Login Success.")
+            profile = request.user.management_profile
+        except ManagementStaff.DoesNotExist:
+            logout(request)
+        else:
+            if profile.status == 'Active' and request.user.is_active:
+                return redirect('rental_system:home')
+            logout(request)
+
+    if request.method == 'POST':
+        email_input = request.POST.get('email', '').strip().lower()
+        password = request.POST.get('password', '')
+        client_address = request.META.get('REMOTE_ADDR', 'local')
+        attempt_digest = hashlib.sha256(f'{email_input}|{client_address}'.encode()).hexdigest()
+        attempt_key = f'login-attempts:{attempt_digest}'
+        failed_attempts = cache.get(attempt_key, 0)
+
+        if failed_attempts >= 5:
+            error_msg = 'Too many failed login attempts. Try again in 15 minutes.'
+        elif not email_input or not password:
+            error_msg = 'Please enter both email and password.'
+        elif not is_valid_miit_email(email_input):
+            error_msg = 'Please use a valid MIIT Outlook email (@miit.edu.mm).'
+        else:
+            error_msg = 'Invalid email or password. Please try again.'
+            staff = ManagementStaff.objects.select_related('auth_user').filter(
+                outlook_mail__iexact=email_input,
+            ).first()
+            username = staff.auth_user.username if staff else '__invalid_management_user__'
+            authenticated_user = authenticate(request, username=username, password=password)
+
+            if (
+                staff
+                and authenticated_user
+                and staff.status == 'Active'
+                and authenticated_user.is_active
+            ):
+                login(request, authenticated_user)
+                cache.delete(attempt_key)
                 request.session['staff_id'] = staff.id
-                print(f"Session created with staff_id: {staff.id}")
-                print("=" * 60)
-                
                 if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                     return JsonResponse({
                         'success': True,
-                        'redirect_url': reverse('rental_system:home')
+                        'redirect_url': reverse('rental_system:home'),
                     })
                 return redirect('rental_system:home')
-            else:
-                print("PASSWORD MISMATCH! Login Failed.")
-                error_msg = 'Invalid email or password. Please try again.'
-                
-        except ManagementStaff.DoesNotExist:
-            print(f"USER NOT FOUND with email: {email_input}")
-            error_msg = 'Invalid email or password. Please try again.'
-        
-        print("=" * 60)
-        
-        # Error response
+
+            cache.set(attempt_key, failed_attempts + 1, timeout=15 * 60)
+
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            return JsonResponse({
-                'success': False,
-                'error': error_msg
-            })
-        return render(request, 'login.html', {
-            'error': error_msg
-        })
-    
+            return JsonResponse({'success': False, 'error': error_msg})
+        return render(request, 'login.html', {'error': error_msg})
+
     return render(request, 'login.html')
 
+
 def signin_view(request):
-    """
-    Handles the REGISTRATION (Sign Up) logic.
-    """
+    """Create the one initial system administrator for a new installation."""
+    if ManagementStaff.objects.exists():
+        messages.info(request, 'Account registration is closed. Ask a system administrator to create an account.')
+        return redirect('rental_system:login')
+
     if request.method == 'POST':
-        # 1. Capture data
-        name = request.POST.get('name')
-        outlook_mail = request.POST.get('email') 
-        position = request.POST.get('position')
-        department = request.POST.get('department')
-        password = request.POST.get('password')
-        confirm_password = request.POST.get('confirm_password')
+        name = (request.POST.get('name') or '').strip()
+        outlook_mail = (request.POST.get('email') or '').strip().lower()
+        position = (request.POST.get('position') or '').strip()
+        department = (request.POST.get('department') or '').strip()
+        password = request.POST.get('password') or ''
+        confirm_password = request.POST.get('confirm_password') or ''
 
-        # 2. Validation: Passwords match?
+        if not all([name, outlook_mail, position, department, password]):
+            return render(request, 'signin.html', {'error': 'All fields are required.'})
+        if not is_valid_miit_email(outlook_mail):
+            return render(request, 'signin.html', {'error': 'Use a valid @miit.edu.mm email address.'})
         if password != confirm_password:
-            return render(request, 'signin.html', {
-                'error': 'Passwords do not match!'
-            })
+            return render(request, 'signin.html', {'error': 'Passwords do not match.'})
 
-        # 3. Validation: Name taken?
-        if ManagementStaff.objects.filter(username=name).exists():
-            return render(request, 'signin.html', {
-                'error': 'This name is already taken. Please use a different name.'
-            })
+        try:
+            validate_password(password)
+        except ValidationError as exc:
+            return render(request, 'signin.html', {'error': ' '.join(exc.messages)})
 
-        # 4. Create the new staff member
-        new_staff = ManagementStaff.objects.create(
-            username=name,
-            name=name,
-            outlook_mail=outlook_mail, 
-            position=position,
-            department=department,
-            password=make_password(password)
-        )
+        try:
+            with transaction.atomic():
+                auth_user = User.objects.create_user(
+                    username=name,
+                    email=outlook_mail,
+                    password=password,
+                    first_name=name,
+                )
+                new_staff = ManagementStaff.objects.create(
+                    auth_user=auth_user,
+                    username=name,
+                    name=name,
+                    outlook_mail=outlook_mail,
+                    position=position,
+                    department=department,
+                    role='SystemAdmin',
+                )
+        except IntegrityError:
+            return render(request, 'signin.html', {'error': 'That username or email address is already registered.'})
 
-        # 5. Automatically log them in (Create session)
+        login(request, auth_user)
         request.session['staff_id'] = new_staff.id
         return redirect('rental_system:home')
 
@@ -519,17 +534,11 @@ def student_create(request):
     return redirect('rental_system:student_list')
 
 
+@transaction.atomic
 def student_update(request, pk):
     student = get_object_or_404(Student, pk=pk)
-    print("\n" + "="*50)
-    print(f"STUDENT UPDATE VIEW CALLED for student ID: {pk}")
-    print(f"Request method: {request.method}")
     
     if request.method == "POST":
-        print("POST data received:")
-        for key, value in request.POST.items():
-            print(f"  {key}: {value}")
-        
         form = StudentForm(request.POST, instance=student)
         
         # မပြင်ခင် အဟောင်းတန်ဖိုးတွေကိုသိမ်းထား
@@ -541,13 +550,7 @@ def student_update(request, pk):
             'major': student.major,
             'batch_year': student.batch_year
         }
-        print(f"\nOLD VALUES (from database):")
-        for key, value in old_data.items():
-            print(f"  {key}: {value}")
-        
         if form.is_valid():
-            print("\nFORM IS VALID")
-            
             # Form ထဲက တန်ဖိုးတွေကိုယူမယ်
             new_student_id = request.POST.get('student_id', '').strip()
             new_full_name = request.POST.get('full_name', '').strip()
@@ -556,17 +559,8 @@ def student_update(request, pk):
             new_major = request.POST.get('major', '').strip()
             new_batch_year = request.POST.get('batch_year', '').strip()
             
-            print(f"\nNEW VALUES (from form):")
-            print(f"  student_id: {new_student_id}")
-            print(f"  full_name: {new_full_name}")
-            print(f"  email: {new_email}")
-            print(f"  phone: {new_phone}")
-            print(f"  major: {new_major}")
-            print(f"  batch_year: {new_batch_year}")
-            
             # Update လုပ်
             updated_student = form.save()
-            print(f"\nSTUDENT SAVED: ID={updated_student.id}")
             
             # ပြောင်းလဲမှုတွေကိုရှာမယ်
             changes = []
@@ -576,47 +570,35 @@ def student_update(request, pk):
             if str(old_data['student_id']) != str(new_student_id):
                 changes.append(f"Roll Number: '{old_data['student_id']}' → '{new_student_id}'")
                 changed_fields.append('student_id')
-                print(f"✓ student_id changed: {old_data['student_id']} → {new_student_id}")
             
             if old_data['full_name'] != new_full_name:
                 changes.append(f"Name: '{old_data['full_name']}' → '{new_full_name}'")
                 changed_fields.append('full_name')
-                print(f"✓ full_name changed: {old_data['full_name']} → {new_full_name}")
             
             if old_data['email'] != new_email:
                 changes.append(f"Email: '{old_data['email']}' → '{new_email}'")
                 changed_fields.append('email')
-                print(f"✓ email changed: {old_data['email']} → {new_email}")
             
             if str(old_data['phone']) != str(new_phone):
                 old_phone = old_data['phone'] or 'N/A'
                 new_phone_display = new_phone or 'N/A'
                 changes.append(f"Phone: '{old_phone}' → '{new_phone_display}'")
                 changed_fields.append('phone')
-                print(f"✓ phone changed: {old_phone} → {new_phone_display}")
             
             if old_data['major'] != new_major:
                 changes.append(f"Major: {old_data['major']} → {new_major}")
                 changed_fields.append('major')
-                print(f"✓ major changed: {old_data['major']} → {new_major}")
             
             if int(old_data['batch_year']) != int(new_batch_year):
                 changes.append(f"Batch: {old_data['batch_year']} → {new_batch_year}")
                 changed_fields.append('batch_year')
-                print(f"✓ batch_year changed: {old_data['batch_year']} → {new_batch_year}")
-            
-            print(f"\nCHANGES FOUND: {len(changes)}")
-            for i, change in enumerate(changes):
-                print(f"  Change {i+1}: {change}")
             
             # Audit Log ဖန်တီးခြင်း
             staff_id = request.session.get('staff_id')
-            print(f"\nStaff ID from session: {staff_id}")
             
             if staff_id:
                 try:
                     staff = ManagementStaff.objects.get(id=staff_id)
-                    print(f"Staff found: {staff.username}")
                     
                     # Description ကိုစီစဉ်မယ်
                     if changes:
@@ -626,14 +608,12 @@ def student_update(request, pk):
                     else:
                         description = f"[Roll Number: {updated_student.student_id}] No changes made"
                     
-                    print(f"\nDESCRIPTION: {description}")
-                    
                     # Old value နဲ့ New value
                     old_value_str = f"ID:{old_data['student_id']}, Name:{old_data['full_name']}, Email:{old_data['email']}, Major:{old_data['major']}"
                     new_value_str = f"ID:{updated_student.student_id}, Name:{updated_student.full_name}, Email:{updated_student.email}, Major:{updated_student.major}"
                     
                     # Audit Log သိမ်းမယ်
-                    audit_log = AuditLog.objects.create(
+                    AuditLog.objects.create(
                         staff=staff,
                         action_type='Update',
                         target_table='student',
@@ -642,35 +622,30 @@ def student_update(request, pk):
                         new_value=new_value_str,
                         description=description
                     )
-                    print(f"✅ AUDIT LOG CREATED: ID={audit_log.id}")
-                    print(f"   Description: {audit_log.description}")
-                    
                 except ManagementStaff.DoesNotExist:
-                    print(f"❌ Staff with ID {staff_id} not found!")
+                    pass
                 except Exception as e:
-                    print(f"❌ Error creating audit log: {str(e)}")
-            else:
-                print("❌ No staff_id in session!")
+                    messages.error(request, f'Could not record the audit entry: {e}')
             
             messages.success(request, 'Student updated successfully!')
             return redirect('rental_system:student_list')
         else:
-            print("\n❌ FORM IS NOT VALID")
-            print(f"Form errors: {form.errors}")
-            # ... existing error handling ...
+            messages.error(request, 'Could not update student. Please correct the submitted values.')
     
     return redirect('rental_system:student_list')
 
 
 #To import from excel file
 
+@transaction.atomic
 def import_students_excel(request):
     if request.method != 'POST':
         return redirect('rental_system:student_list')
 
     file = request.FILES.get('file')
-    if not file:
-        messages.error(request, "Please choose an Excel file.")
+    upload_error = validate_excel_upload(file)
+    if upload_error:
+        messages.error(request, upload_error)
         return redirect('rental_system:student_list')
 
     try:
@@ -815,13 +790,15 @@ def laptop_update(request, pk):
 
 
 #To import from excel file
+@transaction.atomic
 def import_laptops_excel(request):
     if request.method != 'POST':
         return redirect('rental_system:inventory_list')
 
     file = request.FILES.get('file')
-    if not file:
-        messages.error(request, "Please choose an Excel file.")
+    upload_error = validate_excel_upload(file)
+    if upload_error:
+        messages.error(request, upload_error)
         return redirect('rental_system:inventory_list')
 
     try:
@@ -883,6 +860,7 @@ def import_laptops_excel(request):
     return redirect('rental_system:inventory_list')
 
 
+@transaction.atomic
 def assigned_laptop_list(request):
     refresh_overdue_assignments()
 
@@ -972,6 +950,7 @@ def assigned_laptop_list(request):
     })
 
 
+@transaction.atomic
 def return_laptop_list(request):
     refresh_overdue_assignments()
 
@@ -1220,6 +1199,7 @@ def return_laptop_list(request):
     })
 
 
+@transaction.atomic
 def issue_list(request):
     repair_logs = RepairLog.objects.select_related('laptop').order_by('-repair_date', '-id')
     active_issues = repair_logs.exclude(repair_status='Completed')
@@ -1324,17 +1304,16 @@ def system_preferences(request):
     except ManagementStaff.DoesNotExist:
         return redirect('rental_system:login')
     
+    stored_preferences = SystemPreference.objects.order_by('pk').first()
     context = {
         'user': current_staff,
         'title': 'System Preferences',
+        'preferences': stored_preferences.values if stored_preferences else {},
     }
     return render(request, 'system_preferences.html', context)
 
 def audit_logs(request):
     """Display audit logs page with filters and pagination"""
-    print("=" * 50)
-    print("AUDIT LOGS VIEW CALLED")
-    
     staff_id = request.session.get('staff_id')
     if not staff_id:
         return redirect('rental_system:login')
@@ -1398,9 +1377,6 @@ def audit_logs(request):
     page_number = request.GET.get('page', 1)
     page_obj = paginator.get_page(page_number)
     
-    print(f"Total logs: {logs.count()}")
-    print(f"Showing page {page_number} of {paginator.num_pages}")
-    
     context = {
         'user': current_staff,
         'logs': page_obj,
@@ -1412,25 +1388,13 @@ def audit_logs(request):
 
 def update_profile(request):
     """Handle profile update form submission - prevents email and department changes"""
-    print("=" * 50)
-    print("UPDATE PROFILE VIEW CALLED")
-    print(f"Request method: {request.method}")
-    
     if request.method == 'POST':
-        print("POST data received:")
-        for key, value in request.POST.items():
-            print(f"  {key}: {value}")
-        
         staff_id = request.session.get('staff_id')
-        print(f"Staff ID from session: {staff_id}")
-        
         if not staff_id:
-            print("No staff_id in session, redirecting to login")
             return redirect('rental_system:login')
         
         try:
             staff = ManagementStaff.objects.get(id=staff_id)
-            print(f"Staff found: {staff.name} (ID: {staff.id})")
             
             # Get form data - only update allowed fields
             new_name = request.POST.get('name', '').strip()
@@ -1442,13 +1406,6 @@ def update_profile(request):
             # Keep the existing values from database
             # new_email is ignored (not updated)
             # new_department is ignored (not updated)
-            
-            print(f"New name: {new_name}")
-            print(f"New username: {new_username}")
-            print(f"New phone: {new_phone}")
-            print(f"New position: {new_position}")
-            print(f"Email remains: {staff.outlook_mail} (not changed)")
-            print(f"Department remains: {staff.department} (not changed)")
             
             # Check if username is already taken by another user
             if new_username and new_username != staff.username:
@@ -1470,16 +1427,17 @@ def update_profile(request):
             # staff.outlook_mail remains unchanged
             # staff.department remains unchanged
             
-            staff.save()
-            print("Staff saved successfully!")
+            with transaction.atomic():
+                staff.save()
+                staff.auth_user.username = staff.username
+                staff.auth_user.first_name = staff.name
+                staff.auth_user.save(update_fields=['username', 'first_name'])
             
             messages.success(request, 'Profile updated successfully!')
             
         except ManagementStaff.DoesNotExist:
-            print(f"ERROR: Staff with ID {staff_id} not found!")
             messages.error(request, 'Staff member not found.')
         except Exception as e:
-            print(f"ERROR: {str(e)}")
             messages.error(request, f'An error occurred: {str(e)}')
         
         return redirect('rental_system:profile_settings')
@@ -1488,100 +1446,64 @@ def update_profile(request):
 
 def change_password(request):
     """Handle password change form submission"""
-    print("=" * 50)
-    print("CHANGE PASSWORD VIEW CALLED")
-    print(f"Request method: {request.method}")
-    
     if request.method == 'POST':
-        print("POST data received:")
-        for key, value in request.POST.items():
-            print(f"  {key}: {value}")
-        
         staff_id = request.session.get('staff_id')
-        print(f"Staff ID from session: {staff_id}")
-        
         if not staff_id:
-            print("No staff_id in session, redirecting to login")
             messages.error(request, 'Your session has expired. Please login again.')
             return redirect('rental_system:login')
         
         try:
             staff = ManagementStaff.objects.get(id=staff_id)
-            print(f"Staff found: {staff.username} (ID: {staff.id})")
-            
             current_password = request.POST.get('current_password')
             new_password = request.POST.get('new_password')
             confirm_password = request.POST.get('confirm_password')
-            
-            print(f"Current password provided: {'Yes' if current_password else 'No'}")
-            print(f"New password provided: {'Yes' if new_password else 'No'}")
-            print(f"Confirm password provided: {'Yes' if confirm_password else 'No'}")
-            
-            # Verify current password
-            from django.contrib.auth.hashers import check_password
-            password_match = check_password(current_password, staff.password)
-            print(f"Password match: {password_match}")
-            
-            if not password_match:
-                print("Current password is incorrect")
+
+            if not request.user.check_password(current_password):
                 messages.error(request, 'Current password is incorrect.')
                 return redirect('rental_system:account_settings')
             
             # Verify new passwords match
             if new_password != confirm_password:
-                print("New passwords do not match")
                 messages.error(request, 'New passwords do not match.')
                 return redirect('rental_system:account_settings')
-            
-            # Verify password strength
-            if len(new_password) < 8:
-                print("Password too short")
-                messages.error(request, 'Password must be at least 8 characters long.')
+
+            try:
+                validate_password(new_password, user=request.user)
+            except ValidationError as exc:
+                messages.error(request, ' '.join(exc.messages))
                 return redirect('rental_system:account_settings')
-            
-            # Update password
-            from django.contrib.auth.hashers import make_password
-            hashed_password = make_password(new_password)
-            print(f"New password hash: {hashed_password[:20]}...")
-            
-            staff.password = hashed_password
-            staff.save()
-            print("Password saved successfully!")
-            
+
+            request.user.set_password(new_password)
+            request.user.save(update_fields=['password'])
+            update_session_auth_hash(request, request.user)
             messages.success(request, 'Password changed successfully!')
-            print("Success message added")
-            
         except ManagementStaff.DoesNotExist:
-            print(f"ERROR: Staff with ID {staff_id} not found!")
             messages.error(request, 'Staff member not found.')
         except Exception as e:
-            print(f"ERROR: {str(e)}")
             messages.error(request, f'An error occurred: {str(e)}')
         
         return redirect('rental_system:account_settings')
     
-    print("Not a POST request, redirecting to account_settings")
     return redirect('rental_system:account_settings')
 
 def deactivate_account(request):
     """Handle account deactivation"""
-    if request.method == 'GET':
-        staff_id = request.session.get('staff_id')
-        if not staff_id:
-            return redirect('rental_system:login')
-        
-        try:
-            staff = ManagementStaff.objects.get(id=staff_id)
-            staff.status = 'Resigned'  # or whatever status you use for inactive
+    staff_id = request.session.get('staff_id')
+    if not staff_id:
+        return redirect('rental_system:login')
+
+    try:
+        with transaction.atomic():
+            staff = ManagementStaff.objects.select_related('auth_user').get(id=staff_id)
+            staff.status = 'Resigned'
             staff.save()
-            
-            # Log out the user
-            del request.session['staff_id']
-            messages.info(request, 'Your account has been deactivated.')
-            
-        except ManagementStaff.DoesNotExist:
-            pass
-        
+            staff.auth_user.is_active = False
+            staff.auth_user.save(update_fields=['is_active'])
+        logout(request)
+        messages.info(request, 'Your account has been deactivated.')
+    except ManagementStaff.DoesNotExist:
+        pass
+
     return redirect('rental_system:login')
 
 def save_preferences(request):
@@ -1625,19 +1547,20 @@ def save_preferences(request):
                 'export_format': request.POST.get('export_format', 'csv'),
             }
             
-            # Here you would save to database
-            # For now, just show success message
-            messages.success(request, 'System preferences saved successfully!')
-            
-            # Create audit log
             staff = ManagementStaff.objects.get(id=staff_id)
-            AuditLog.objects.create(
-                staff=staff,
-                action_type='Update',
-                target_table='system_preferences',
-                record_id='1',
-                description='System preferences updated'
-            )
+            with transaction.atomic():
+                preference, _ = SystemPreference.objects.update_or_create(
+                    pk=1,
+                    defaults={'values': preferences, 'updated_by': staff},
+                )
+                AuditLog.objects.create(
+                    staff=staff,
+                    action_type='Update',
+                    target_table='system_preferences',
+                    record_id=str(preference.pk),
+                    description='System preferences updated',
+                )
+            messages.success(request, 'System preferences saved successfully!')
             
         except Exception as e:
             messages.error(request, f'Error saving preferences: {str(e)}')
@@ -1946,13 +1869,15 @@ def staff_update(request, pk):
 
     return redirect('rental_system:staff_list')
 
+@transaction.atomic
 def import_staff_excel(request):
     if request.method != 'POST':
         return redirect('rental_system:staff_list')
 
     file = request.FILES.get('file')
-    if not file:
-        messages.error(request, "Please choose an Excel file.")
+    upload_error = validate_excel_upload(file)
+    if upload_error:
+        messages.error(request, upload_error)
         return redirect('rental_system:staff_list')
 
     try:
@@ -2034,39 +1959,20 @@ def import_staff_excel(request):
     return redirect('rental_system:staff_list')
 
 def assign_new_admin(request):
-    """
-    View for creating new admin/staff management accounts.
-    Any logged-in admin can create new admin accounts.
-    """
-    # Check if user is logged in
-    staff_id = request.session.get('staff_id')
-    if not staff_id:
-        messages.error(request, 'Please login to access this page.')
-        return redirect('rental_system:login')
-    
-    try:
-        current_staff = ManagementStaff.objects.get(id=staff_id)
-        # Check if staff is active
-        if current_staff.status != 'Active':
-            messages.error(request, 'Your account is not active. Please contact administrator.')
-            return redirect('rental_system:login')
-    except ManagementStaff.DoesNotExist:
-        messages.error(request, 'Staff member not found.')
-        return redirect('rental_system:login')
-    
+    """Create a management account. Access is restricted in urls.py."""
+    current_staff = request.management_staff
+
     if request.method == 'POST':
-        # Get form data
         name = request.POST.get('name', '').strip()
         username = request.POST.get('username', '').strip()
-        email = request.POST.get('email', '').strip().lower()  # Convert to lowercase
+        email = request.POST.get('email', '').strip().lower()
         phone = request.POST.get('phone', '').strip()
-        position = request.POST.get('position', '')
-        department = request.POST.get('department', '')
+        position = request.POST.get('position', '').strip()
+        department = request.POST.get('department', '').strip()
+        role = request.POST.get('role', 'Admin')
         password = request.POST.get('password', '')
         confirm_password = request.POST.get('confirm_password', '')
-        send_notification = request.POST.get('send_notification') == 'yes'
-        
-        # Store form data for repopulation on error
+
         form_data = {
             'name': name,
             'username': username,
@@ -2074,169 +1980,81 @@ def assign_new_admin(request):
             'phone': phone,
             'position': position,
             'department': department,
-            'send_notification': send_notification
+            'role': role,
         }
-        
-        # Initialize errors list
+
         errors = []
-        
-        # Check required fields
-        if not name:
-            errors.append("Full name is required.")
-        if not username:
-            errors.append("Username is required.")
-        if not email:
-            errors.append("Email address is required.")
-        if not position:
-            errors.append("Position is required.")
-        if not department:
-            errors.append("Department is required.")
-        if not password:
-            errors.append("Password is required.")
-        if not confirm_password:
-            errors.append("Please confirm your password.")
-        
-        # Validate MIIT email format (using the is_valid_miit_email function)
+        required_values = {
+            'Full name': name,
+            'Username': username,
+            'Email address': email,
+            'Position': position,
+            'Department': department,
+            'Password': password,
+            'Password confirmation': confirm_password,
+        }
+        errors.extend(f'{label} is required.' for label, value in required_values.items() if not value)
+
         if email and not is_valid_miit_email(email):
-            errors.append("Only MIIT email addresses (@miit.edu.mm) are allowed. Please use your university email.")
-        
-        # Check if username already exists
+            errors.append('Only @miit.edu.mm email addresses are allowed.')
         if username and ManagementStaff.objects.filter(username=username).exists():
-            errors.append(f"Username '{username}' is already taken. Please choose another one.")
-        
-        # Check if email already exists
+            errors.append('That username is already registered.')
         if email and ManagementStaff.objects.filter(outlook_mail__iexact=email).exists():
-            errors.append(f"Email '{email}' is already registered. Please use a different email.")
-        
-        # Validate email format
-        if email and not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', email):
-            errors.append("Please enter a valid email address.")
-        
-        # Validate phone number (optional)
+            errors.append('That email address is already registered.')
         if phone and not re.match(r'^[0-9\-+]{9,15}$', phone):
-            errors.append("Phone number should contain only numbers, dashes, and plus sign (9-15 characters).")
-        
-        # Check password match
+            errors.append('Phone number may contain numbers, dashes, and a plus sign (9-15 characters).')
         if password and confirm_password and password != confirm_password:
-            errors.append("Passwords do not match.")
-        
-        # Validate password strength
-        if password and len(password) < 6:
-            errors.append("Password must be at least 6 characters long.")
-        
-        # If there are errors, return to form with error messages
+            errors.append('Passwords do not match.')
+        if role not in {'Admin', 'ReadOnly'}:
+            errors.append('Choose a valid account role.')
+        if password:
+            try:
+                validate_password(password)
+            except ValidationError as exc:
+                errors.extend(exc.messages)
+
         if errors:
             for error in errors:
                 messages.error(request, error)
             return render(request, 'assign_new_admin.html', {'form_data': form_data})
-        
-        # Create new management staff account
+
         try:
-            from django.contrib.auth.hashers import make_password
-            
-            # DEBUG: Print the password being hashed
-            print("=" * 50)
-            print("CREATING NEW ADMIN ACCOUNT")
-            print(f"Name: {name}")
-            print(f"Username: {username}")
-            print(f"Email: {email}")
-            print(f"Plain password: {password}")
-            
-            # Hash the password
-            hashed_password = make_password(password)
-            print(f"Hashed password: {hashed_password}")
-            
-            # Create the new admin/staff account
-            new_admin = ManagementStaff.objects.create(
-                name=name,
-                username=username,
-                outlook_mail=email,
-                phone_number=phone if phone else None,
-                position=position,
-                department=department,
-                password=hashed_password,
-                status='Active',
-            )
-            
-            print(f"Account created successfully! ID: {new_admin.id}")
-            print(f"Stored password in DB: {new_admin.password}")
-            
-            # Verify the password was stored correctly
-            from django.contrib.auth.hashers import check_password
-            verification = check_password(password, new_admin.password)
-            print(f"Password verification test: {verification}")
-            print("=" * 50)
-            
-            # Create audit log for this action
-            try:
+            with transaction.atomic():
+                auth_user = User.objects.create_user(
+                    username=username,
+                    email=email,
+                    password=password,
+                    first_name=name,
+                )
+                new_admin = ManagementStaff.objects.create(
+                    auth_user=auth_user,
+                    name=name,
+                    username=username,
+                    outlook_mail=email,
+                    phone_number=phone or None,
+                    position=position,
+                    department=department,
+                    role=role,
+                    status='Active',
+                )
                 AuditLog.objects.create(
                     staff=current_staff,
-                    action_type='Insert',
+                    action_type='Create',
                     target_table='management_staff',
-                    record_id=new_admin.id,
+                    record_id=str(new_admin.id),
                     old_value='',
-                    new_value=f"Created new staff: {name} (Username: {username}, Position: {position}, Department: {department})",
-                    description=f"Created account for {name}"
+                    new_value=f'Created {role} account {username}',
+                    description=f'Created account for {name}',
                 )
-            except Exception as audit_error:
-                print(f"Audit log error: {audit_error}")
-            
-            # Send email notification if requested
-            if send_notification and email:
-                try:
-                    from django.core.mail import send_mail
-                    from django.conf import settings
-                    
-                    subject = f"Welcome to UniKit - Your Account"
-                    message = f"""
-Dear {name},
-
-Your account has been created in the UniKit Laptop Rental System.
-
-Account Details:
------------------
-Full Name: {name}
-Username: {username}
-Email: {email}
-Position: {position}
-Department: {department}
-Phone: {phone if phone else 'Not provided'}
-
-Temporary Login Password: {password}
-
-**Important Security Notes:**
-1. Please change your password after your first login.
-2. Keep your credentials secure and do not share them.
-3. If you didn't request this account, please contact the system administrator immediately.
-
-Login URL: {request.build_absolute_uri('/login/')}
-
-Best regards,
-UniKit Administration Team
-{current_staff.name}
-"""
-                    
-                    send_mail(
-                        subject,
-                        message,
-                        settings.DEFAULT_FROM_EMAIL if hasattr(settings, 'DEFAULT_FROM_EMAIL') else 'noreply@unikit.edu.mm',
-                        [email],
-                        fail_silently=True,
-                    )
-                    messages.success(request, f"Account created successfully! A welcome email has been sent to {email}.")
-                except Exception as email_error:
-                    messages.success(request, f"Account created successfully! However, email notification could not be sent.")
-            else:
-                messages.success(request, f"Account for {name} has been created successfully!")
-            
+            messages.success(request, f'Account for {name} was created successfully. Share the temporary password securely.')
             return redirect('rental_system:home')
-            
+        except IntegrityError:
+            messages.error(request, 'That username or email address is already registered.')
+            return render(request, 'assign_new_admin.html', {'form_data': form_data})
         except Exception as e:
-            print(f"ERROR creating account: {str(e)}")
             messages.error(request, f"An error occurred while creating the account: {str(e)}")
             return render(request, 'assign_new_admin.html', {'form_data': form_data})
-    
-    # GET request - display empty form
+
     return render(request, 'assign_new_admin.html')
 
 def is_valid_miit_email(email):

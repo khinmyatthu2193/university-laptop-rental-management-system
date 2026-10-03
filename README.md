@@ -99,6 +99,72 @@ Run the following commands from the directory containing `manage.py`. Use Python
 
 Application accounts use the `ManagementStaff` model. Django's separate `/admin/` interface uses a Django superuser, which can optionally be created with `python manage.py createsuperuser`.
 
+## Single-laptop production setup
+
+The real-use configuration is intentionally local-only. Waitress listens on `127.0.0.1`, so another computer cannot connect to UniKit. Do not change it to `0.0.0.0` without adding HTTPS and reviewing the security configuration.
+
+1. Install Python 3.12 or newer, then create a clean environment. The old `venv/` directory in some development copies may point to a Python installation that no longer exists.
+
+   ```powershell
+   python --version
+   python -m venv .venv
+   .\.venv\Scripts\Activate.ps1
+   python -m pip install --upgrade pip
+   python -m pip install -r requirements.txt
+   ```
+
+2. Generate a private production key and save it in the current Windows user's environment:
+
+   ```powershell
+   $secret = python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
+   [Environment]::SetEnvironmentVariable("DJANGO_SECRET_KEY", $secret, "User")
+   ```
+
+   Open a new PowerShell window after setting the variable. Never put the resulting key in Git or the README.
+
+3. Start UniKit with the production settings:
+
+   ```powershell
+   .\scripts\start_unikit.ps1
+   ```
+
+4. Open <http://127.0.0.1:8080/>. Existing management accounts retain their passwords after the security migration. For a new empty database, `/home/signin/` creates the first system administrator and then closes public registration.
+
+Management roles are:
+
+- **System administrator:** full access and account creation.
+- **Administrator:** can view and update operational records.
+- **Read-only reporter:** can view records and reports but receives HTTP 403 for write operations.
+
+The migration assigns `System administrator` to existing management accounts to avoid locking anyone out. Before real use, review them in `/admin/rental_system/managementstaff/`, keep at least one system administrator, and downgrade other accounts to Administrator or Read-only as appropriate. Django admin access uses separate Django superuser credentials.
+
+Account creation no longer emails or logs plaintext passwords. Give a temporary password to the staff member through a separate trusted channel and have them change it after first login.
+
+### Backups
+
+Backups must be stored on a separate drive or device. Set a destination and run the backup script:
+
+```powershell
+[Environment]::SetEnvironmentVariable("UNIKIT_BACKUP_DIR", "E:\UniKit Backups", "User")
+.\scripts\backup_unikit.ps1
+```
+
+Each backup is created through SQLite's online backup API, checked with `PRAGMA integrity_check`, and accompanied by a SHA-256 checksum. The command retains the newest 30 backups. Configure Windows Task Scheduler to run `scripts\backup_unikit.ps1` daily while the external backup device is available.
+
+To restore, stop UniKit first, create one final backup if the current database is readable, verify the selected backup's SHA-256 checksum, and copy it to `db.sqlite3`. Start UniKit and verify login, inventory totals, active assignments, and recent audit entries. Test this procedure using a copied project before relying on it for official records.
+
+### Production checks
+
+Run these after every update:
+
+```powershell
+$env:DJANGO_SETTINGS_MODULE = "unikit_university_laptop_rental_management_system.production"
+python manage.py check --deploy
+python manage.py test
+```
+
+The local HTTP-only deployment intentionally does not enable HTTPS-only cookie and HSTS settings. Those settings become mandatory if UniKit is ever made accessible over a LAN or the internet.
+
 ## Project structure
 
 ```text

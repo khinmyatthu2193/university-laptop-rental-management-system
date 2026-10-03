@@ -147,13 +147,17 @@
         Once you deactivate, you will lose access to the system
       </p>
     </div>
-    <button
-      class="btn btn-outline"
-      style="border-color: #e74c3c; color: #e74c3c"
-      onclick="confirmDeactivate()"
-    >
-      <i class="fas fa-exclamation-triangle"></i> Deactivate
-    </button>
+    <form method="post" action="{% url 'rental_system:deactivate_account' %}" id="deactivateForm">
+      {% csrf_token %}
+      <button
+        type="button"
+        class="btn btn-outline"
+        style="border-color: #e74c3c; color: #e74c3c"
+        onclick="confirmDeactivate()"
+      >
+        <i class="fas fa-exclamation-triangle"></i> Deactivate
+      </button>
+    </form>
   </div>
 </div>
 
@@ -248,7 +252,7 @@
         "Are you sure you want to deactivate your account? This action cannot be undone."
       )
     ) {
-      window.location.href = "{% url 'rental_system:deactivate_account' %}";
+      document.getElementById("deactivateForm").submit();
     }
   }
 </script>

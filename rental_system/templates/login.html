@@ -392,9 +392,9 @@
         </div>
 
         <!-- CORRECTED: Added ID="error-box" so JS can find it -->
-        <div class="error-box" id="error-box">
+        <div class="error-box" id="error-box"{% if error %} style="display: flex"{% endif %}>
           <i class="fas fa-exclamation-circle"></i>
-          <span id="error-message">Invalid outlook mail or password.</span>
+          <span id="error-message">{{ error|default:"Invalid outlook mail or password." }}</span>
         </div>
 
         <!-- CORRECTED: Added action and method for Django -->
@@ -482,12 +482,12 @@
         ></i>
         <h3>Reset Password</h3>
         <p style="color: #666; margin-bottom: 20px">
-          Enter your university email address and we'll send you a link to reset
-          your password.
+          Automated password reset is not enabled for this local installation.
+          Contact the UniKit system administrator to receive a temporary password.
         </p>
         <div
           class="input-wrapper"
-          style="text-align: left; margin-bottom: 20px"
+          style="display: none"
         >
           <input
             type="email"
@@ -497,7 +497,7 @@
             autocomplete="email"
           />
         </div>
-        <button class="modal-btn" id="sendLinkBtn">Send Link</button>
+        <button class="modal-btn" id="sendLinkBtn">Close</button>
         <button class="modal-btn secondary" onclick="closeModal()">
           Cancel
         </button>
@@ -531,7 +531,7 @@
       function closeModal() {
         modal.classList.remove("open");
         resetEmail.value = "";
-        sendLinkBtn.innerText = "Send Link";
+        sendLinkBtn.innerText = "Close";
         sendLinkBtn.disabled = false;
         sendLinkBtn.style.backgroundColor = "";
       }
@@ -544,24 +544,7 @@
 
       sendLinkBtn.addEventListener("click", (e) => {
         e.preventDefault();
-
-        if (!resetEmail.value || !resetEmail.value.includes("@")) {
-          alert("Please enter your email.");
-          return;
-        }
-
-        const originalText = sendLinkBtn.innerText;
-        sendLinkBtn.innerText = "Sending...";
-        sendLinkBtn.disabled = true;
-
-        setTimeout(() => {
-          sendLinkBtn.innerText = "Link Sent!";
-          sendLinkBtn.style.backgroundColor = "#2ecc71";
-
-          setTimeout(() => {
-            closeModal();
-          }, 1000);
-        }, 1500);
+        closeModal();
       });
 
       // ============================================

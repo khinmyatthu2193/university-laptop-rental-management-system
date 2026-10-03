@@ -838,6 +838,7 @@
   </form>
 </div>
 
+{{ preferences|json_script:"saved-system-preferences" }}
 <script>
   // Auto-hide messages after 5 seconds
   function autoHideMessages() {
@@ -935,6 +936,19 @@
   });
 
   document.addEventListener("DOMContentLoaded", function () {
+    const savedNode = document.getElementById("saved-system-preferences");
+    const saved = savedNode ? JSON.parse(savedNode.textContent) : {};
+    Object.entries(saved).forEach(([name, value]) => {
+      document.getElementsByName(name).forEach((field) => {
+        if (field.type === "checkbox") {
+          field.checked = Boolean(value);
+        } else if (field.type === "radio") {
+          field.checked = field.value === String(value);
+        } else {
+          field.value = value;
+        }
+      });
+    });
     autoHideMessages();
   });
 </script>

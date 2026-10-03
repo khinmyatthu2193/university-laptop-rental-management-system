@@ -1,4 +1,7 @@
+from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import models
+from django.db.models import Q
 
 # -----------------------------
 # Management Staff
@@ -10,13 +13,24 @@ class ManagementStaff(models.Model):
         ('Resigned', 'Resigned'),
     ]
 
+    ROLE_CHOICES = [
+        ('SystemAdmin', 'System administrator'),
+        ('Admin', 'Administrator'),
+        ('ReadOnly', 'Read-only reporter'),
+    ]
+
+    auth_user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name='management_profile',
+    )
     name = models.CharField(max_length=30)
     username = models.CharField(max_length=50, unique=True)
-    outlook_mail = models.EmailField()
+    outlook_mail = models.EmailField(unique=True)
     phone_number = models.CharField(max_length=20, blank=True, null=True) 
-    password = models.CharField(max_length=255)
     position = models.CharField(max_length=20)
     department = models.CharField(max_length=30)
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='Admin')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Active')
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -200,8 +214,8 @@ class LaptopAssignment(models.Model):
         ('Overdue', 'Overdue'),
     ]
 
-    person = models.ForeignKey(Person, on_delete=models.CASCADE)
-    laptop = models.ForeignKey(Laptop, on_delete=models.CASCADE)
+    person = models.ForeignKey(Person, on_delete=models.PROTECT)
+    laptop = models.ForeignKey(Laptop, on_delete=models.PROTECT)
 
     issue_date = models.DateField()
     expected_return_date = models.DateField()
@@ -212,6 +226,32 @@ class LaptopAssignment(models.Model):
 
     class Meta:
         db_table = 'laptop_assignment'
+        constraints = [
+            models.UniqueConstraint(
+                fields=['laptop'],
+                condition=Q(
+                    assignment_status__in=['Issued', 'Overdue'],
+                    actual_return_date__isnull=True,
+                ),
+                name='one_active_assignment_per_laptop',
+            ),
+            models.UniqueConstraint(
+                fields=['person'],
+                condition=Q(
+                    assignment_status__in=['Issued', 'Overdue'],
+                    actual_return_date__isnull=True,
+                ),
+                name='one_active_assignment_per_person',
+            ),
+            models.CheckConstraint(
+                condition=Q(expected_return_date__gte=models.F('issue_date')),
+                name='assignment_due_on_or_after_issue',
+            ),
+            models.CheckConstraint(
+                condition=Q(actual_return_date__isnull=True) | Q(actual_return_date__gte=models.F('issue_date')),
+                name='assignment_return_on_or_after_issue',
+            ),
+        ]
 
 
 # -----------------------------
@@ -224,8 +264,8 @@ class DamageReport(models.Model):
         ('No', 'No'),
     ]
 
-    laptop = models.ForeignKey(Laptop, on_delete=models.CASCADE)
-    assignment = models.ForeignKey(LaptopAssignment, on_delete=models.CASCADE)
+    laptop = models.ForeignKey(Laptop, on_delete=models.PROTECT)
+    assignment = models.ForeignKey(LaptopAssignment, on_delete=models.PROTECT)
 
     damage_description = models.TextField()
     report_date = models.DateField()
@@ -246,11 +286,11 @@ class RepairLog(models.Model):
         ('Completed', 'Completed'),
     ]
 
-    laptop = models.ForeignKey(Laptop, on_delete=models.CASCADE)
+    laptop = models.ForeignKey(Laptop, on_delete=models.PROTECT)
 
     repair_date = models.DateField()
     issue_description = models.TextField()
-    repair_cost = models.FloatField()
+    repair_cost = models.DecimalField(max_digits=12, decimal_places=2, default=0)
 
     repair_shop = models.CharField(max_length=50)
     shop_address = models.CharField(max_length=100)
@@ -266,17 +306,17 @@ class RepairLog(models.Model):
 # -----------------------------
 class LaptopReplacement(models.Model):
 
-    assignment = models.ForeignKey(LaptopAssignment, on_delete=models.CASCADE)
+    assignment = models.ForeignKey(LaptopAssignment, on_delete=models.PROTECT)
 
     old_laptop = models.ForeignKey(
         Laptop,
-        on_delete=models.CASCADE,
+        on_delete=models.PROTECT,
         related_name='old_laptop'
     )
 
     new_laptop = models.ForeignKey(
         Laptop,
-        on_delete=models.CASCADE,
+        on_delete=models.PROTECT,
         related_name='new_laptop'
     )
 
@@ -291,7 +331,7 @@ class LaptopReplacement(models.Model):
 # -----------------------------
 class Blacklist(models.Model):
 
-    person = models.ForeignKey(Person, on_delete=models.CASCADE)
+    person = models.ForeignKey(Person, on_delete=models.PROTECT)
     reason = models.TextField()
     blacklist_date = models.DateField()
 
@@ -305,12 +345,13 @@ class Blacklist(models.Model):
 class AuditLog(models.Model):
 
     ACTION_TYPES = [
+        ('Create', 'Create'),
         ('Insert', 'Insert'),
         ('Update', 'Update'),
         ('Delete', 'Delete'),
     ]
 
-    staff = models.ForeignKey(ManagementStaff, on_delete=models.CASCADE)
+    staff = models.ForeignKey(ManagementStaff, on_delete=models.PROTECT)
 
     action_time = models.DateTimeField(auto_now_add=True)
     action_type = models.CharField(max_length=20, choices=ACTION_TYPES)
@@ -325,4 +366,22 @@ class AuditLog(models.Model):
 
     class Meta:
         db_table = 'audit_log'
-        
+
+    def save(self, *args, **kwargs):
+        if self.pk and type(self).objects.filter(pk=self.pk).exists():
+            raise ValidationError('Audit log records are append-only.')
+        return super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise ValidationError('Audit log records cannot be deleted.')
+
+
+class SystemPreference(models.Model):
+    """Persisted singleton-style settings for this local UniKit installation."""
+
+    values = models.JSONField(default=dict)
+    updated_by = models.ForeignKey(ManagementStaff, on_delete=models.PROTECT)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'system_preference'

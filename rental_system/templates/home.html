@@ -902,12 +902,12 @@
             id="userMenuButton"
             style="cursor: pointer"
           >
-            {{ user.name|default:"TA"|make_list|first|upper }}
+            {{ management_staff.name|default:"TA"|make_list|first|upper }}
           </div>
           <div class="text-end" id="userMenuButton" style="cursor: pointer">
-            <div class="unikit-user-name">{{ user.name|default:"Admin" }}</div>
+            <div class="unikit-user-name">{{ management_staff.name|default:"Admin" }}</div>
             <div class="unikit-user-role">
-              {{ user.position|default:"Administrator" }}
+              {{ management_staff.get_role_display|default:"Administrator" }}
             </div>
           </div>
 
@@ -938,10 +938,10 @@
               "
             >
               <div style="font-weight: 600; color: var(--purple-dark)">
-                {{ user.name|default:"Teacher Admin" }}
+                {{ management_staff.name|default:"Teacher Admin" }}
               </div>
               <div style="font-size: 12px; color: var(--text-muted)">
-                {{ user.outlook_mail|default:"admin@university.edu" }}
+                {{ management_staff.outlook_mail|default:"admin@university.edu" }}
               </div>
             </div>
 
@@ -1019,6 +1019,7 @@
               <span>Audit Logs</span>
             </a>
 
+            {% if management_staff.role == 'SystemAdmin' %}
             <a
               href="{% url 'rental_system:assign_new_admin' %}"
               class="dropdown-item"
@@ -1036,9 +1037,12 @@
               ></i>
               <span>Assign New Admin</span>
             </a>
+            {% endif %}
 
-            <a
-              href="{% url 'rental_system:logout' %}"
+            <form method="post" action="{% url 'rental_system:logout' %}" style="margin: 0">
+              {% csrf_token %}
+            <button
+              type="submit"
               class="dropdown-item"
               style="
                 display: block;
@@ -1047,6 +1051,12 @@
                 text-decoration: none;
                 transition: background 0.3s;
                 border-top: 1px solid rgba(231, 76, 60, 0.2);
+                width: 100%;
+                text-align: left;
+                background: transparent;
+                border-right: 0;
+                border-bottom: 0;
+                border-left: 0;
               "
             >
               <i
@@ -1054,7 +1064,8 @@
                 style="width: 20px; margin-right: 12px"
               ></i>
               <span>Logout</span>
-            </a>
+            </button>
+            </form>
           </div>
         </div>
       </div>

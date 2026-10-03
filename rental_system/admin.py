@@ -2,7 +2,7 @@ from django.contrib import admin
 from .models import (
     ManagementStaff, Person, Student, Staff, Laptop, 
     LaptopAssignment, DamageReport, RepairLog, 
-    LaptopReplacement, Blacklist, AuditLog
+    LaptopReplacement, Blacklist, AuditLog, SystemPreference
 )
 
 # -----------------------------
@@ -11,9 +11,18 @@ from .models import (
 
 @admin.register(ManagementStaff)
 class ManagementStaffAdmin(admin.ModelAdmin):
-    list_display = ('username', 'name', 'position', 'department', 'status', 'created_at')
-    list_filter = ('status', 'department', 'position')
+    list_display = ('username', 'name', 'role', 'position', 'department', 'status', 'created_at')
+    list_filter = ('role', 'status', 'department', 'position')
     search_fields = ('username', 'name', 'outlook_mail')
+
+    def save_model(self, request, obj, form, change):
+        super().save_model(request, obj, form, change)
+        auth_user = obj.auth_user
+        auth_user.username = obj.username
+        auth_user.email = obj.outlook_mail
+        auth_user.first_name = obj.name
+        auth_user.is_active = obj.status == 'Active'
+        auth_user.save(update_fields=['username', 'email', 'first_name', 'is_active'])
 
 @admin.register(Person)
 class PersonAdmin(admin.ModelAdmin):
@@ -95,6 +104,15 @@ class AuditLogAdmin(admin.ModelAdmin):
     search_fields = ('description', 'record_id')
     # Make Audit Logs read-only to preserve integrity
     readonly_fields = ('staff', 'action_time', 'action_type', 'target_table', 'record_id', 'old_value', 'new_value', 'description')
+
+    def has_add_permission(self, request): return False
+    def has_delete_permission(self, request, obj=None): return False
+
+
+@admin.register(SystemPreference)
+class SystemPreferenceAdmin(admin.ModelAdmin):
+    list_display = ('id', 'updated_by', 'updated_at')
+    readonly_fields = ('values', 'updated_by', 'updated_at')
 
     def has_add_permission(self, request): return False
     def has_delete_permission(self, request, obj=None): return False

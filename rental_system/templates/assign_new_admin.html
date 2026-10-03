@@ -140,7 +140,7 @@
               placeholder="Create secure password"
               required
             />
-            <small style="color: var(--text-muted); font-size: 11px;">Minimum 6 characters</small>
+            <small style="color: var(--text-muted); font-size: 11px;">Use at least 8 characters and avoid common passwords.</small>
           </div>
 
           <div class="form-group">
@@ -157,18 +157,16 @@
           </div>
         </div>
 
-        <div style="margin: 20px 0; display: flex; align-items: center; gap: 12px;">
-          <input 
-            type="checkbox" 
-            name="send_notification" 
-            id="sendEmailCheck" 
-            value="yes"
-            {% if form_data.send_notification %}checked{% endif %}
-            style="width: 18px; height: 18px; cursor: pointer;"
-          >
-          <label for="sendEmailCheck" style="margin: 0; cursor: pointer; font-weight: 500;">
-            <i class="fas fa-envelope-open-text"></i> Send login credentials via email to the new user
-          </label>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">
+              <i class="fas fa-user-shield"></i> Access Role <span style="color: var(--danger);">*</span>
+            </label>
+            <select class="form-control" name="role" required>
+              <option value="Admin" {% if form_data.role != 'ReadOnly' %}selected{% endif %}>Administrator — view and edit</option>
+              <option value="ReadOnly" {% if form_data.role == 'ReadOnly' %}selected{% endif %}>Read-only reporter — view only</option>
+            </select>
+          </div>
         </div>
 
         <div style="display: flex; gap: 10px; margin-top: 30px">
