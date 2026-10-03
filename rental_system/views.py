@@ -407,7 +407,10 @@ def login_view(request):
 
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
             return JsonResponse({'success': False, 'error': error_msg})
-        return render(request, 'login.html', {'error': error_msg})
+        return render(request, 'login.html', {
+            'error': error_msg,
+            'email': email_input,
+        })
 
     return render(request, 'login.html')
 
