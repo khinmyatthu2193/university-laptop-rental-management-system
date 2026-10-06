@@ -246,12 +246,14 @@
 </style>
 
 <script>
-  function confirmDeactivate() {
-    if (
-      confirm(
-        "Are you sure you want to deactivate your account? This action cannot be undone."
-      )
-    ) {
+  async function confirmDeactivate() {
+    const confirmed = await requestConfirmation({
+      title: "Deactivate account?",
+      message: "This action cannot be undone. Your account will no longer be able to access the system.",
+      confirmLabel: "Deactivate",
+      destructive: true,
+    });
+    if (confirmed) {
       document.getElementById("deactivateForm").submit();
     }
   }

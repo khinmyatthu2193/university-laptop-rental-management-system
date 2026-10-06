@@ -858,12 +858,13 @@
   }
 
   // Reset to default function
-  function resetToDefault() {
-    if (
-      confirm(
-        "Are you sure you want to reset all preferences to default values?"
-      )
-    ) {
+  async function resetToDefault() {
+    const confirmed = await requestConfirmation({
+      title: "Reset preferences?",
+      message: "All preference fields will be returned to their default values.",
+      confirmLabel: "Reset preferences",
+    });
+    if (confirmed) {
       // Set default values
       document.querySelector('input[name="system_name"]').value =
         "UniKit - Laptop Rental System";

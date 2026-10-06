@@ -308,8 +308,13 @@
   });
   
   // Reset form function
-  function resetForm() {
-    if (confirm('Clear all form fields?')) {
+  async function resetForm() {
+    const confirmed = await requestConfirmation({
+      title: 'Clear form?',
+      message: 'All information entered in this form will be removed.',
+      confirmLabel: 'Clear form',
+    });
+    if (confirmed) {
       document.querySelector('form').reset();
       // Clear any error messages
       if (emailErrorDiv) {
