@@ -48,42 +48,79 @@
     }
 
     .login-card {
-      width: min(480px, 100%);
-      padding: 40px;
+      width: min(920px, 100%);
       background: var(--surface);
-      border: 1px solid #e2e6ec;
-      border-radius: 12px;
-      box-shadow: 0 4px 14px rgba(20, 43, 88, 0.08);
+      border: 1px solid #dfe3e9;
+      border-radius: 10px;
+      box-shadow: 0 4px 12px rgba(20, 43, 88, 0.06);
+      overflow: hidden;
+    }
+
+    .login-content {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1.08fr);
     }
 
     .brand-header {
-      text-align: center;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: flex-start;
+      min-height: 360px;
+      padding: 44px 48px;
+      background: #f7faff;
+      border-right: 1px solid #e5e7eb;
     }
 
     .miit-logo {
       display: block;
-      width: 96px;
-      height: 96px;
-      margin: 0 auto 20px;
+      flex: 0 0 auto;
+      width: 56px;
+      height: 56px;
       object-fit: contain;
+    }
+
+    .institution-identity {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      width: 100%;
+      margin-bottom: 24px;
+      padding: 12px 14px;
+      background: #f1f5fa;
+      border: 1px solid #dce4ee;
+      border-radius: 10px;
+    }
+
+    .institution-name {
+      margin: 0;
+      color: var(--miit-navy);
+      font-size: 0.94rem;
+      font-weight: 600;
+      line-height: 1.35;
     }
 
     h1 {
       margin: 0;
       color: var(--miit-navy);
-      font-size: clamp(1.5rem, 5vw, 2rem);
-      line-height: 1.25;
+      font-size: clamp(1.65rem, 3vw, 2rem);
+      line-height: 1.22;
     }
 
     .subtitle {
-      margin: 12px 0 0;
+      margin: 14px 0 0;
       color: var(--muted);
-      font-size: 0.95rem;
+      font-size: 0.9rem;
       line-height: 1.5;
     }
 
     .login-form {
-      margin-top: 32px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      min-height: 360px;
+      margin: 0;
+      padding: 44px 48px;
     }
 
     .error-box {
@@ -168,7 +205,7 @@
     .submit-button {
       width: 100%;
       height: 48px;
-      margin-top: 24px;
+      margin-top: 8px;
       color: #ffffff;
       background: var(--miit-navy);
       border: 0;
@@ -188,8 +225,8 @@
     }
 
     .footer {
-      margin: 30px 0 0;
-      padding-top: 20px;
+      margin: 0;
+      padding: 16px 24px;
       color: var(--muted);
       border-top: 1px solid #e6e9ee;
       font-size: 0.78rem;
@@ -197,18 +234,52 @@
       text-align: center;
     }
 
-    @media (max-width: 520px) {
+    @media (max-width: 760px) {
       .page-shell {
         padding: 20px 14px;
       }
 
-      .login-card {
-        padding: 32px 22px;
+      .login-content {
+        grid-template-columns: 1fr;
+      }
+
+      .brand-header {
+        align-items: center;
+        min-height: auto;
+        padding: 32px 28px 28px;
+        border-right: 0;
+        border-bottom: 1px solid #e5e7eb;
+        text-align: center;
+      }
+
+      .login-form {
+        min-height: auto;
+        padding: 30px 28px 34px;
       }
 
       .miit-logo {
-        width: 84px;
-        height: 84px;
+        width: 54px;
+        height: 54px;
+      }
+
+      .institution-identity {
+        max-width: 340px;
+        margin-bottom: 20px;
+        text-align: left;
+      }
+    }
+
+    @media (max-width: 420px) {
+      .brand-header {
+        padding: 28px 22px 24px;
+      }
+
+      .login-form {
+        padding: 26px 22px 30px;
+      }
+
+      h1 {
+        font-size: 1.5rem;
       }
     }
   </style>
@@ -216,40 +287,45 @@
 <body>
   <main class="page-shell">
     <section class="login-card" aria-labelledby="login-heading">
-      <header class="brand-header">
-        <img class="miit-logo" src="{{ STATIC_PREFIX }}images/miit_logo.png" alt="Myanmar Institute of Information Technology logo" width="96" height="96">
-        <h1 id="login-heading">University Laptop Rental Management System</h1>
-        <p class="subtitle">Sign in with your MIIT staff account.</p>
-      </header>
-
-      <form class="login-form" id="loginForm" action="{% url 'rental_system:login' %}" method="post">
-        {% csrf_token %}
-
-        {% if error %}
-          <div class="error-box" role="alert" aria-live="polite">{{ error }}</div>
-        {% endif %}
-
-        <div class="form-group">
-          <label class="field-label" for="id_email">Email</label>
-          <input class="text-input" type="email" name="email" id="id_email" value="{% firstof email default_email '' %}" placeholder="name@miit.edu.mm" inputmode="email" autocomplete="username" autocapitalize="none" spellcheck="false" required autofocus>
-        </div>
-
-        <div class="form-group">
-          <label class="field-label" for="id_password">Password</label>
-          <div class="password-field">
-            <input class="text-input" type="password" name="password" id="id_password" value="{{ default_password|default:'' }}" placeholder="Enter your password" autocomplete="current-password" required>
-            <button class="password-toggle" type="button" id="passwordToggle" aria-label="Show password" aria-pressed="false">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"></path>
-                <circle cx="12" cy="12" r="3"></circle>
-                <path class="eye-slash-line" d="m3 3 18 18"></path>
-              </svg>
-            </button>
+      <div class="login-content">
+        <header class="brand-header">
+          <div class="institution-identity">
+            <img class="miit-logo" src="{{ STATIC_PREFIX }}images/miit_logo.png" alt="Myanmar Institute of Information Technology logo" width="56" height="56">
+            <p class="institution-name">Myanmar Institute of Information Technology</p>
           </div>
-        </div>
+          <h1 id="login-heading">University Laptop Rental Management System</h1>
+          <p class="subtitle">Authorized ITSM Department Personnel Only</p>
+        </header>
 
-        <button class="submit-button" type="submit" id="submitButton">Log In</button>
-      </form>
+        <form class="login-form" id="loginForm" action="{% url 'rental_system:login' %}" method="post">
+          {% csrf_token %}
+
+          {% if error %}
+            <div class="error-box" role="alert" aria-live="polite">{{ error }}</div>
+          {% endif %}
+
+          <div class="form-group">
+            <label class="field-label" for="id_email">Email</label>
+            <input class="text-input" type="email" name="email" id="id_email" value="{% firstof email default_email '' %}" placeholder="name@miit.edu.mm" inputmode="email" autocomplete="username" autocapitalize="none" spellcheck="false" required autofocus>
+          </div>
+
+          <div class="form-group">
+            <label class="field-label" for="id_password">Password</label>
+            <div class="password-field">
+              <input class="text-input" type="password" name="password" id="id_password" value="{{ default_password|default:'' }}" placeholder="Enter your password" autocomplete="current-password" required>
+              <button class="password-toggle" type="button" id="passwordToggle" aria-label="Show password" aria-pressed="false">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"></path>
+                  <circle cx="12" cy="12" r="3"></circle>
+                  <path class="eye-slash-line" d="m3 3 18 18"></path>
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <button class="submit-button" type="submit" id="submitButton">Log In</button>
+        </form>
+      </div>
 
       <footer class="footer">© 2026 Myanmar Institute of Information Technology</footer>
     </section>
