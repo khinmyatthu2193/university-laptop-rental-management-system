@@ -28,6 +28,10 @@ class PhaseOneSecurityTests(TestCase):
         )
         return user, profile
 
+    def test_root_redirects_to_login(self):
+        response = self.client.get('/')
+        self.assertRedirects(response, reverse('rental_system:login'))
+
     def test_operational_pages_require_login(self):
         protected_names = [
             'home', 'student_list', 'staff_list', 'inventory_list',
