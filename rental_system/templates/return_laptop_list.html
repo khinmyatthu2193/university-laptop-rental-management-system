@@ -24,7 +24,7 @@
   <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
     <h2 class="section-title mb-0">Annual Return Due Date</h2>
   </div>
-  <form method="post" class="row g-2 align-items-end mb-4">
+  {% if access.returns.manage %}<form method="post" class="row g-2 align-items-end mb-4">
     {% csrf_token %}
     <input type="hidden" name="action" value="set_annual_due_date">
     <div class="col-md-4">
@@ -37,7 +37,7 @@
     <div class="col-12">
       <small class="text-muted">Assignments that pass this due date without annual/complete return are marked as Overdue.</small>
     </div>
-  </form>
+  </form>{% else %}<p class="text-muted mb-0">Annual due-date changes require return management access.</p>{% endif %}
 </div>
 
 <div class="data-section">
@@ -110,9 +110,9 @@
             {% endif %}
           </td>
           <td>
-            <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="{% if r.owner_type == 'staff' %}#returnStaffModal{{ r.owner_id }}{% else %}#returnStudentModal{{ r.owner_id }}{% endif %}">
+            {% if access.returns.manage %}<button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="{% if r.owner_type == 'staff' %}#returnStaffModal{{ r.owner_id }}{% else %}#returnStudentModal{{ r.owner_id }}{% endif %}">
               Return
-            </button>
+            </button>{% else %}<span class="text-muted">View only</span>{% endif %}
           </td>
         </tr>
         {% empty %}
@@ -182,9 +182,9 @@
             {% endif %}
           </td>
           <td>
-            <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#returnStaffModal{{ a.person.staff.id }}">
+            {% if access.returns.manage %}<button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#returnStaffModal{{ a.person.staff.id }}">
               Return
-            </button>
+            </button>{% else %}<span class="text-muted">View only</span>{% endif %}
           </td>
         </tr>
         {% empty %}

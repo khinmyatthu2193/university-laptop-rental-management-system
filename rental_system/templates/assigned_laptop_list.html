@@ -18,7 +18,7 @@
     </div>
   </div>
 
-  <div class="row g-4 mb-4">
+  {% if access.assignments.manage %}<div class="row g-4 mb-4">
     <div class="col-xl-6">
       <div class="card assign-card h-100">
         <div class="assign-card-header">
@@ -127,7 +127,7 @@
         </div>
       </div>
     </div>
-  </div>
+  </div>{% else %}<div class="alert alert-info mb-4" role="status">You have view-only access. Daw Moe Thida can grant assignment management access when needed.</div>{% endif %}
 
   <div class="card table-shell border-0 shadow-sm">
     <div class="card-header table-section-header d-flex justify-content-between align-items-center flex-wrap gap-3">

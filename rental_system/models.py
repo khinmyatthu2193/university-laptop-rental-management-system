@@ -31,11 +31,28 @@ class ManagementStaff(models.Model):
     position = models.CharField(max_length=20)
     department = models.CharField(max_length=30)
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='Admin')
+    permissions = models.JSONField(default=list, blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Active')
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return self.username
+
+    @property
+    def is_account_owner(self):
+        return self.username.strip().casefold() == 'daw_moe_thida'
+
+    def has_permission(self, permission):
+        """Return whether this staff account can use a UniKit capability."""
+        if self.is_account_owner:
+            return True
+        # Keep the first-installation administrator usable until the named
+        # owner account has been created.
+        if self.role == 'SystemAdmin' and not type(self).objects.filter(
+            username__iexact='daw_moe_thida'
+        ).exists():
+            return True
+        return permission in (self.permissions or [])
 
     class Meta:
         db_table = 'management_staff'

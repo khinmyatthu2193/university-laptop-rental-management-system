@@ -1929,6 +1929,12 @@
               <span>Profile</span>
             </a>
 
+            {% if management_staff.is_account_owner %}
+            <a href="{% url 'rental_system:assign_new_admin' %}" class="dropdown-item">
+              <span>ITSM User Access</span>
+            </a>
+            {% endif %}
+
             <form class="profile-menu-form" method="post" action="{% url 'rental_system:logout' %}">
               {% csrf_token %}
               <button type="submit" class="dropdown-item profile-menu-logout">
@@ -1946,69 +1952,69 @@
       <aside class="unikit-sidebar" id="primarySidebar" aria-label="Primary navigation">
         <div class="unikit-side-section">MAIN</div>
 
-        <a
+        {% if access.dashboard.view %}<a
           class="unikit-nav-link {% if request.resolver_match.url_name == 'home' %}active{% endif %}"
           href="{% url 'rental_system:home' %}"
           aria-label="Dashboard"
           data-tooltip="Dashboard"
         >
           <i class="fas fa-tachometer-alt"></i> <span>Dashboard</span>
-        </a>
+        </a>{% endif %}
 
-        <a
+        {% if access.students.view %}<a
           class="unikit-nav-link {% if 'students' in request.path %}active{% endif %}"
           href="{% url 'rental_system:student_list' %}"
           aria-label="Student Records"
           data-tooltip="Student Records"
         >
           <i class="fas fa-users"></i> <span>Student Records</span>
-        </a>
+        </a>{% endif %}
 
-        <a
+        {% if access.staff_records.view %}<a
           class="unikit-nav-link {% if 'staffs' in request.path %}active{% endif %}"
           href="{% url 'rental_system:staff_list' %}"
           aria-label="Staff Accounts"
           data-tooltip="Staff Accounts"
         >
           <i class="fas fa-user-tie"></i> <span>Staff Accounts</span>
-        </a>
+        </a>{% endif %}
 
-        <a
+        {% if access.inventory.view %}<a
           class="unikit-nav-link {% if 'inventory' in request.path %}active{% endif %}"
           href="{% url 'rental_system:inventory_list' %}"
           aria-label="Laptop Inventory"
           data-tooltip="Laptop Inventory"
         >
           <i class="fas fa-laptop"></i> <span>Laptop Inventory</span>
-        </a>
+        </a>{% endif %}
 
-        <a
+        {% if access.assignments.view %}<a
           class="unikit-nav-link {% if 'assignments' in request.path %}active{% endif %}"
           href="{% url 'rental_system:assigned_laptop_list' %}"
           aria-label="Laptop Assignment"
           data-tooltip="Laptop Assignment"
         >
           <i class="fas fa-handshake"></i> <span>Laptop Assignment</span>
-        </a>
+        </a>{% endif %}
 
         <div class="unikit-side-section mt-4">MANAGEMENT</div>
-        <a
+        {% if access.returns.view %}<a
           class="unikit-nav-link {% if 'returns' in request.path %}active{% endif %}"
           href="{% url 'rental_system:return_laptop_list' %}"
           aria-label="Returns"
           data-tooltip="Returns"
           ><i class="fas fa-undo-alt"></i> <span>Returns</span></a
-        >
-        <a
+        >{% endif %}
+        {% if access.issues.view %}<a
           class="unikit-nav-link {% if 'issues' in request.path %}active{% endif %}"
           href="{% url 'rental_system:issue_list' %}"
           aria-label="Issues"
           data-tooltip="Issues"
           ><i class="fas fa-exclamation-triangle"></i> <span>Issues</span></a
-        >
-        <a class="unikit-nav-link" href="#" aria-label="Reports" data-tooltip="Reports"
-          ><i class="fas fa-chart-bar"></i> <span>Reports</span></a
-        >
+        >{% endif %}
+        {% if access.audit_logs.view %}<a class="unikit-nav-link {% if 'audit-logs' in request.path %}active{% endif %}" href="{% url 'rental_system:audit_logs' %}" aria-label="Audit logs" data-tooltip="Audit logs"><i class="fas fa-clipboard-list"></i> <span>Audit Logs</span></a>{% endif %}
+        {% if access.system_preferences.view %}<a class="unikit-nav-link {% if 'system-preferences' in request.path %}active{% endif %}" href="{% url 'rental_system:system_preferences' %}" aria-label="System preferences" data-tooltip="System preferences"><i class="fas fa-sliders"></i> <span>System Preferences</span></a>{% endif %}
+        {% if management_staff.is_account_owner %}<a class="unikit-nav-link {% if 'assign-new-admin' in request.path or 'staff-access' in request.path %}active{% endif %}" href="{% url 'rental_system:assign_new_admin' %}" aria-label="ITSM user access" data-tooltip="ITSM user access"><i class="fas fa-user-shield"></i> <span>ITSM User Access</span></a>{% endif %}
 
       </aside>
 

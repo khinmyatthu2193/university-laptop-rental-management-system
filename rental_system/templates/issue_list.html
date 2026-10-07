@@ -5,9 +5,9 @@
     <h1 class="page-title">Issue Management</h1>
     <p class="page-subtitle">Track and resolve laptop issues in the same style as the rest of the system</p>
   </div>
-  <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#reportIssueModal">
+  {% if access.issues.manage %}<button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#reportIssueModal">
     <i class="fas fa-plus"></i> Report Issue
-  </button>
+  </button>{% endif %}
 </div>
 
 <div class="cards-grid mb-4">
@@ -41,7 +41,7 @@
           <td>{{ issue.laptop.SerialNumber }} - {{ issue.laptop.brand }} {{ issue.laptop.name }}</td>
           <td>{{ issue.issue_description }}</td>
           <td>
-            {% if issue.repair_status == 'Pending' %}
+            {% if access.issues.manage and issue.repair_status == 'Pending' %}
               <span class="badge bg-warning text-dark">Pending</span>
             {% elif issue.repair_status == 'Repairing' %}
               <span class="badge bg-primary">Repairing</span>
@@ -58,7 +58,7 @@
               <button type="submit" class="btn btn-sm btn-outline-primary">Start Repair</button>
             </form>
             {% endif %}
-            {% if issue.repair_status != 'Completed' %}
+            {% if access.issues.manage and issue.repair_status != 'Completed' %}
             <form method="post" class="d-inline">
               {% csrf_token %}
               <input type="hidden" name="action" value="complete">

@@ -11,13 +11,14 @@
     </div>
 
     <div class="d-flex align-items-center gap-2 flex-wrap">
-      <button type="button" class="btn btn-upload-excel" id="openImportLaptopBtn">
+      {% if access.inventory.manage %}<button type="button" class="btn btn-upload-excel" id="openImportLaptopBtn">
         <i class="fa-solid fa-file-arrow-up me-2"></i>Import Excel
       </button>
 
       <button type="button" class="btn btn-add-record" id="openAddLaptopBtn">
         <i class="fas fa-plus me-2"></i>Add Device
       </button>
+      {% endif %}
     </div>
   </div>
 
@@ -133,12 +134,12 @@
             </td>
             <td class="text-center">
               <div class="action-buttons justify-content-center">
-                <button type="button"
+                {% if access.inventory.manage %}<button type="button"
                         class="btn btn-sm btn-icon btn-view view-btn"
                         data-laptop-id="{{ l.id }}"
                         title="View">
                   <i class="fas fa-eye"></i>
-                </button>
+                </button>{% endif %}
                 <button type="button"
                         class="btn btn-sm btn-icon btn-edit edit-btn"
                         data-laptop-id="{{ l.id }}"

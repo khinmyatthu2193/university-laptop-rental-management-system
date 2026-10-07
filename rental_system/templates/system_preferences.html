@@ -323,18 +323,10 @@
 {% if messages %}
 <div class="message-container">
   {% for message in messages %}
-  <div
-    class="message message-{{ message.tags }}"
-    id="message-{{ forloop.counter }}"
-  >
-    <i
-      class="fas fa-{% if message.tags == 'success' %}check-circle{% elif message.tags == 'error' %}exclamation-circle{% else %}info-circle{% endif %}"
-    ></i>
+  <div class="message message-{{ message.tags }}" id="message-{{ forloop.counter }}">
+    <i class="fas fa-{% if message.tags == 'success' %}check-circle{% elif message.tags == 'error' %}exclamation-circle{% else %}info-circle{% endif %}"></i>
     <span>{{ message }}</span>
-    <i
-      class="fas fa-times message-close"
-      onclick="this.parentElement.remove()"
-    ></i>
+    <i class="fas fa-times message-close" onclick="this.parentElement.remove()"></i>
   </div>
   {% endfor %}
 </div>
@@ -355,6 +347,7 @@
 <div class="preferences-container">
   <form method="post" action="{% url 'rental_system:save_preferences' %}">
     {% csrf_token %}
+    <fieldset {% if not access.system_preferences.manage %}disabled{% endif %} style="border:0;margin:0;padding:0;min-width:0">
 
     <!-- General Settings -->
     <div class="pref-section">
@@ -835,6 +828,7 @@
         <i class="fas fa-save"></i> Save Preferences
       </button>
     </div>
+    </fieldset>
   </form>
 </div>
 

@@ -21,6 +21,8 @@ import hashlib
 import re
 from datetime import datetime
 
+from .access import ALL_PERMISSION_CODES, PERMISSION_GROUPS, landing_page_for
+
 ACTIVE_ASSIGNMENT_STATUSES = ('Issued', 'Overdue')
 MAX_IMPORT_BYTES = 5 * 1024 * 1024
 
@@ -362,7 +364,7 @@ def login_view(request):
             logout(request)
         else:
             if profile.status == 'Active' and request.user.is_active:
-                return redirect('rental_system:home')
+                return redirect(landing_page_for(profile))
             logout(request)
 
     if request.method == 'POST':
@@ -399,9 +401,9 @@ def login_view(request):
                 if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                     return JsonResponse({
                         'success': True,
-                        'redirect_url': reverse('rental_system:home'),
+                        'redirect_url': reverse(landing_page_for(staff)),
                     })
-                return redirect('rental_system:home')
+                return redirect(landing_page_for(staff))
 
             cache.set(attempt_key, failed_attempts + 1, timeout=15 * 60)
 
@@ -463,7 +465,7 @@ def signin_view(request):
 
         login(request, auth_user)
         request.session['staff_id'] = new_staff.id
-        return redirect('rental_system:home')
+        return redirect(landing_page_for(new_staff))
 
     return render(request, 'signin.html')
 
@@ -1410,9 +1412,15 @@ def update_profile(request):
             # new_email is ignored (not updated)
             # new_department is ignored (not updated)
             
+            if staff.is_account_owner:
+                new_username = 'daw_moe_thida'
+            elif new_username.casefold() == 'daw_moe_thida':
+                messages.error(request, 'That username is reserved for the system owner.')
+                return redirect('rental_system:profile_settings')
+
             # Check if username is already taken by another user
             if new_username and new_username != staff.username:
-                if ManagementStaff.objects.filter(username=new_username).exclude(id=staff.id).exists():
+                if ManagementStaff.objects.filter(username__iexact=new_username).exclude(id=staff.id).exists():
                     messages.error(request, 'Username already taken. Please choose another.')
                     return redirect('rental_system:profile_settings')
             
@@ -1498,6 +1506,9 @@ def deactivate_account(request):
     try:
         with transaction.atomic():
             staff = ManagementStaff.objects.select_related('auth_user').get(id=staff_id)
+            if staff.is_account_owner:
+                messages.error(request, 'The owner account cannot be deactivated.')
+                return redirect('rental_system:account_settings')
             staff.status = 'Resigned'
             staff.save()
             staff.auth_user.is_active = False
@@ -1961,8 +1972,41 @@ def import_staff_excel(request):
     messages.success(request, f"{imported_count} staff imported successfully!")
     return redirect('rental_system:staff_list')
 
+def _permissions_from_post(request):
+    selected = []
+    for key, _label, _description, can_manage in PERMISSION_GROUPS:
+        level = request.POST.get(f'access_{key}', 'none')
+        if level in {'view', 'manage'}:
+            selected.append(f'{key}.view')
+        if can_manage and level == 'manage':
+            selected.append(f'{key}.manage')
+    return [code for code in ALL_PERMISSION_CODES if code in selected]
+
+
+def _access_levels(permissions):
+    permissions = set(permissions or [])
+    levels = {}
+    for key, _label, _description, can_manage in PERMISSION_GROUPS:
+        if can_manage and f'{key}.manage' in permissions:
+            levels[key] = 'manage'
+        elif f'{key}.view' in permissions:
+            levels[key] = 'view'
+        else:
+            levels[key] = 'none'
+    return levels
+
+
+def _account_admin_context(**extra):
+    context = {
+        'permission_groups': PERMISSION_GROUPS,
+        'staff_accounts': ManagementStaff.objects.select_related('auth_user').order_by('-status', 'name'),
+    }
+    context.update(extra)
+    return context
+
+
 def assign_new_admin(request):
-    """Create a management account. Access is restricted in urls.py."""
+    """Create and list ITSM application accounts. Access is restricted in urls.py."""
     current_staff = request.management_staff
 
     if request.method == 'POST':
@@ -1971,10 +2015,10 @@ def assign_new_admin(request):
         email = request.POST.get('email', '').strip().lower()
         phone = request.POST.get('phone', '').strip()
         position = request.POST.get('position', '').strip()
-        department = request.POST.get('department', '').strip()
-        role = request.POST.get('role', 'Admin')
+        department = 'ITSM'
         password = request.POST.get('password', '')
         confirm_password = request.POST.get('confirm_password', '')
+        permissions = _permissions_from_post(request)
 
         form_data = {
             'name': name,
@@ -1983,7 +2027,7 @@ def assign_new_admin(request):
             'phone': phone,
             'position': position,
             'department': department,
-            'role': role,
+            'access_levels': _access_levels(permissions),
         }
 
         errors = []
@@ -2000,7 +2044,7 @@ def assign_new_admin(request):
 
         if email and not is_valid_miit_email(email):
             errors.append('Only @miit.edu.mm email addresses are allowed.')
-        if username and ManagementStaff.objects.filter(username=username).exists():
+        if username and ManagementStaff.objects.filter(username__iexact=username).exists():
             errors.append('That username is already registered.')
         if email and ManagementStaff.objects.filter(outlook_mail__iexact=email).exists():
             errors.append('That email address is already registered.')
@@ -2008,8 +2052,6 @@ def assign_new_admin(request):
             errors.append('Phone number may contain numbers, dashes, and a plus sign (9-15 characters).')
         if password and confirm_password and password != confirm_password:
             errors.append('Passwords do not match.')
-        if role not in {'Admin', 'ReadOnly'}:
-            errors.append('Choose a valid account role.')
         if password:
             try:
                 validate_password(password)
@@ -2019,7 +2061,7 @@ def assign_new_admin(request):
         if errors:
             for error in errors:
                 messages.error(request, error)
-            return render(request, 'assign_new_admin.html', {'form_data': form_data})
+            return render(request, 'assign_new_admin.html', _account_admin_context(form_data=form_data))
 
         try:
             with transaction.atomic():
@@ -2037,7 +2079,8 @@ def assign_new_admin(request):
                     phone_number=phone or None,
                     position=position,
                     department=department,
-                    role=role,
+                    role='Admin',
+                    permissions=permissions,
                     status='Active',
                 )
                 AuditLog.objects.create(
@@ -2046,19 +2089,101 @@ def assign_new_admin(request):
                     target_table='management_staff',
                     record_id=str(new_admin.id),
                     old_value='',
-                    new_value=f'Created {role} account {username}',
+                    new_value=f'Created account {username} with permissions: {", ".join(permissions) or "none"}',
                     description=f'Created account for {name}',
                 )
             messages.success(request, f'Account for {name} was created successfully. Share the temporary password securely.')
-            return redirect('rental_system:home')
+            return redirect('rental_system:assign_new_admin')
         except IntegrityError:
             messages.error(request, 'That username or email address is already registered.')
-            return render(request, 'assign_new_admin.html', {'form_data': form_data})
+            return render(request, 'assign_new_admin.html', _account_admin_context(form_data=form_data))
         except Exception as e:
-            messages.error(request, f"An error occurred while creating the account: {str(e)}")
-            return render(request, 'assign_new_admin.html', {'form_data': form_data})
+            messages.error(request, 'The account could not be created. Please review the details and try again.')
+            return render(request, 'assign_new_admin.html', _account_admin_context(form_data=form_data))
 
-    return render(request, 'assign_new_admin.html')
+    return render(request, 'assign_new_admin.html', _account_admin_context())
+
+
+def edit_staff_access(request, pk):
+    """Update a non-owner account and its module permissions."""
+    current_staff = request.management_staff
+    account = get_object_or_404(ManagementStaff.objects.select_related('auth_user'), pk=pk)
+    if account.is_account_owner:
+        return HttpResponse('The owner account always has full access and cannot be changed here.', status=403)
+
+    if request.method == 'POST':
+        name = request.POST.get('name', '').strip()
+        email = request.POST.get('email', '').strip().lower()
+        phone = request.POST.get('phone', '').strip()
+        position = request.POST.get('position', '').strip()
+        status = request.POST.get('status', 'Active')
+        password = request.POST.get('password', '')
+        permissions = _permissions_from_post(request)
+        errors = []
+
+        if not all([name, email, position]):
+            errors.append('Name, email address, and position are required.')
+        if not is_valid_miit_email(email):
+            errors.append('Only @miit.edu.mm email addresses are allowed.')
+        if ManagementStaff.objects.filter(outlook_mail__iexact=email).exclude(pk=account.pk).exists():
+            errors.append('That email address is already registered.')
+        if status not in {'Active', 'Resigned'}:
+            errors.append('Choose a valid account status.')
+        if phone and not re.match(r'^[0-9\-+]{9,15}$', phone):
+            errors.append('Phone number may contain numbers, dashes, and a plus sign (9-15 characters).')
+        if password:
+            try:
+                validate_password(password, user=account.auth_user)
+            except ValidationError as exc:
+                errors.extend(exc.messages)
+
+        if errors:
+            for error in errors:
+                messages.error(request, error)
+        else:
+            old_permissions = list(account.permissions or [])
+            with transaction.atomic():
+                account.name = name
+                account.outlook_mail = email
+                account.phone_number = phone or None
+                account.position = position
+                account.department = 'ITSM'
+                account.status = status
+                account.role = 'Admin'
+                account.permissions = permissions
+                account.save()
+                account.auth_user.email = email
+                account.auth_user.first_name = name
+                account.auth_user.is_active = status == 'Active'
+                if password:
+                    account.auth_user.set_password(password)
+                account.auth_user.save()
+                AuditLog.objects.create(
+                    staff=current_staff,
+                    action_type='Update',
+                    target_table='management_staff',
+                    record_id=str(account.id),
+                    old_value=', '.join(old_permissions) or 'none',
+                    new_value=', '.join(permissions) or 'none',
+                    description=f'Updated account access for {account.username}',
+                )
+            messages.success(request, f'Access for {account.name} was updated successfully.')
+            return redirect('rental_system:assign_new_admin')
+
+    form_data = {
+        'name': request.POST.get('name', account.name),
+        'username': account.username,
+        'email': request.POST.get('email', account.outlook_mail),
+        'phone': request.POST.get('phone', account.phone_number or ''),
+        'position': request.POST.get('position', account.position),
+        'department': 'ITSM',
+        'status': request.POST.get('status', account.status),
+        'access_levels': _access_levels(_permissions_from_post(request) if request.method == 'POST' else account.permissions),
+    }
+    return render(request, 'assign_new_admin.html', _account_admin_context(
+        form_data=form_data,
+        editing_account=account,
+    ))
 
 def is_valid_miit_email(email):
     """Validate that email ends with @miit.edu.mm"""

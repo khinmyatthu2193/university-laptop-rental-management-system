@@ -130,13 +130,12 @@ The real-use configuration is intentionally local-only. Waitress listens on `127
 
 4. Open <http://127.0.0.1:8080/>. Existing management accounts retain their passwords after the security migration. For a new empty database, `/home/signin/` creates the first system administrator and then closes public registration.
 
-Management roles are:
+Application access is managed inside UniKit:
 
-- **System administrator:** full access and account creation.
-- **Administrator:** can view and update operational records.
-- **Read-only reporter:** can view records and reports but receives HTTP 403 for write operations.
+- **`daw_moe_thida`:** protected owner account with full access, including ITSM account creation and authorization.
+- **Other ITSM accounts:** receive No access, View only, or View and manage permission for each operational area.
 
-The migration assigns `System administrator` to existing management accounts to avoid locking anyone out. Before real use, review them in `/admin/rental_system/managementstaff/`, keep at least one system administrator, and downgrade other accounts to Administrator or Read-only as appropriate. Django admin access uses separate Django superuser credentials.
+Use **ITSM User Access** in the application sidebar to add accounts, change their status, reset a temporary password, and update module permissions. Django admin access remains separate and is not required for this workflow.
 
 Account creation no longer emails or logs plaintext passwords. Give a temporary password to the staff member through a separate trusted channel and have them change it after first login.
 

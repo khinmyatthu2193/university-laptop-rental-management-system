@@ -11,7 +11,7 @@ from .models import Laptop, LaptopAssignment, ManagementStaff, Person, SystemPre
 class PhaseOneSecurityTests(TestCase):
     password = 'A-strong-local-password-2026'
 
-    def create_management_staff(self, role='SystemAdmin', username='operator'):
+    def create_management_staff(self, role='SystemAdmin', username='operator', permissions=None):
         user = User.objects.create_user(
             username=username,
             email=f'{username}@miit.edu.mm',
@@ -25,6 +25,7 @@ class PhaseOneSecurityTests(TestCase):
             position='Admin Staff',
             department='ITSM',
             role=role,
+            permissions=permissions or [],
         )
         return user, profile
 
@@ -83,10 +84,54 @@ class PhaseOneSecurityTests(TestCase):
         self.assertContains(response, 'Invalid email or password', status_code=200)
 
     def test_read_only_account_can_view_but_cannot_write(self):
-        user, _ = self.create_management_staff(role='ReadOnly', username='reporter')
+        user, _ = self.create_management_staff(
+            role='ReadOnly', username='reporter', permissions=['inventory.view']
+        )
         self.client.force_login(user)
         self.assertEqual(self.client.get(reverse('rental_system:inventory_list')).status_code, 200)
         self.assertEqual(self.client.post(reverse('rental_system:laptop_create'), {}).status_code, 403)
+
+    def test_named_owner_always_has_full_access(self):
+        user, profile = self.create_management_staff(
+            role='Admin', username='daw_moe_thida', permissions=[]
+        )
+        self.client.force_login(user)
+        self.assertTrue(profile.is_account_owner)
+        self.assertEqual(self.client.get(reverse('rental_system:inventory_list')).status_code, 200)
+        self.assertEqual(self.client.get(reverse('rental_system:assign_new_admin')).status_code, 200)
+
+    def test_permissions_limit_other_accounts_by_module_and_action(self):
+        self.create_management_staff(username='daw_moe_thida')
+        user, _ = self.create_management_staff(
+            role='Admin', username='inventory_viewer', permissions=['inventory.view']
+        )
+        self.client.force_login(user)
+        self.assertEqual(self.client.get(reverse('rental_system:inventory_list')).status_code, 200)
+        self.assertEqual(self.client.get(reverse('rental_system:student_list')).status_code, 403)
+        self.assertEqual(self.client.post(reverse('rental_system:laptop_create'), {}).status_code, 403)
+        self.assertEqual(self.client.get(reverse('rental_system:assign_new_admin')).status_code, 403)
+
+    def test_owner_can_create_account_with_selected_permissions(self):
+        user, _ = self.create_management_staff(username='daw_moe_thida')
+        self.client.force_login(user)
+        response = self.client.post(reverse('rental_system:assign_new_admin'), {
+            'name': 'New ITSM Staff',
+            'username': 'new_itsm_staff',
+            'email': 'new_itsm_staff@miit.edu.mm',
+            'position': 'IT Support Officer',
+            'department': 'ITSM',
+            'password': self.password,
+            'confirm_password': self.password,
+            'access_inventory': 'manage',
+            'access_students': 'view',
+        })
+        self.assertRedirects(response, reverse('rental_system:assign_new_admin'))
+        created = ManagementStaff.objects.get(username='new_itsm_staff')
+        self.assertEqual(created.department, 'ITSM')
+        self.assertEqual(
+            created.permissions,
+            ['students.view', 'inventory.view', 'inventory.manage'],
+        )
 
     def test_only_system_administrator_can_create_accounts(self):
         user, _ = self.create_management_staff(role='Admin', username='admin')

@@ -9,9 +9,9 @@
         <p class="page-subtitle">Overview of laptop inventory and current assignments.</p>
       </div>
       <div class="action-buttons">
-        <button class="btn btn-primary" id="quickAssign">
+        {% if access.assignments.manage %}<button class="btn btn-primary" id="quickAssign">
           <i class="fas fa-plus"></i> Quick Assign
-        </button>
+        </button>{% endif %}
         <button class="btn btn-outline" onclick="exportData()">
           <i class="fas fa-download"></i> Export
         </button>

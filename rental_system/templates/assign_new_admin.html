@@ -1,329 +1,101 @@
 {% extends 'home.html' %}
-{% block title %}Assign New Admin - UniKit{% endblock %}
+{% load rental_extras %}
+{% block title %}ITSM User Access - UniKit{% endblock %}
 {% block content %}
-<div class="content-header">
+<div class="content-header access-header">
   <div>
-    <h1 class="page-title">Assign New Admin</h1>
-    <p class="page-subtitle">
-      Create new staff accounts and assign administrative privileges
-    </p>
+    <p class="access-eyebrow">Owner controls</p>
+    <h1 class="page-title">ITSM User Access</h1>
+    <p class="page-subtitle">Create staff sign-ins and decide exactly which parts of UniKit each person can use.</p>
   </div>
-  <div class="action-buttons">
-    <button class="btn btn-outline" onclick="window.history.back()">
-      <i class="fas fa-arrow-left"></i> Back
-    </button>
-  </div>
+  {% if editing_account %}<a class="btn btn-outline" href="{% url 'rental_system:assign_new_admin' %}"><i class="fas fa-arrow-left"></i> Back to accounts</a>{% endif %}
 </div>
 
-<div class="row">
-  <div class="col-md-12">
-    <div class="data-section">
-      <h2 class="section-title" style="margin-bottom: 30px">
-        <i class="fas fa-user-shield"></i> Account Information
-      </h2>
-
-      <!-- Display Django messages -->
-      {% if messages %}
-        {% for message in messages %}
-          <div class="alert alert-{% if message.tags == 'error' %}danger{% elif message.tags == 'success' %}success{% else %}info{% endif %}" style="padding: 12px 16px; border-radius: 10px; margin-bottom: 20px; {% if message.tags == 'error' %}background: #fee2e2; color: #c62828; border-left: 4px solid #c62828;{% elif message.tags == 'success' %}background: #e8f5e9; color: #2e7d32; border-left: 4px solid #2e7d32;{% else %}background: #e3f2fd; color: #1565c0; border-left: 4px solid #1565c0;{% endif %}">
-            <i class="fas {% if message.tags == 'error' %}fa-exclamation-circle{% elif message.tags == 'success' %}fa-check-circle{% else %}fa-info-circle{% endif %}"></i>
-            {{ message }}
-          </div>
-        {% endfor %}
-      {% endif %}
-
-      <form method="post" action="{% url 'rental_system:assign_new_admin' %}" id="adminForm">
-        {% csrf_token %}
-
-        <div class="form-row">
-          <div class="form-group">
-            <label class="form-label">
-              <i class="fas fa-user"></i> Full Name <span style="color: var(--danger);">*</span>
-            </label>
-            <input
-              type="text"
-              class="form-control"
-              name="name"
-              value="{{ form_data.name|default:'' }}"
-              placeholder="e.g., Aung Aung"
-              required
-            />
-          </div>
-
-          <div class="form-group">
-            <label class="form-label">
-              <i class="fas fa-at"></i> Username <span style="color: var(--danger);">*</span>
-            </label>
-            <input
-              type="text"
-              class="form-control"
-              name="username"
-              value="{{ form_data.username|default:'' }}"
-              placeholder="e.g., @aungaung289"
-              required
-            />
-            <small style="color: var(--text-muted); font-size: 11px;">This will be used to login</small>
-          </div>
-        </div>
-
-        <div class="form-row">
-          <div class="form-group">
-            <label class="form-label">
-              <i class="fas fa-envelope"></i> Outlook Mail <span style="color: var(--danger);">*</span>
-            </label>
-            <input
-              type="email"
-              class="form-control"
-              name="email"
-              id="email"
-              value="{{ form_data.email|default:'' }}"
-              placeholder="staff@miit.edu.mm"
-              required
-            />
-            <small style="color: var(--text-muted); font-size: 11px;">
-              <i class="fas fa-info-circle"></i> Only MIIT email addresses (@miit.edu.mm) are allowed
-            </small>
-            <div id="emailError" style="color: #e74c3c; font-size: 11px; margin-top: 5px; display: none;">
-              <i class="fas fa-exclamation-circle"></i> Please use a valid MIIT email address ending with @miit.edu.mm
-            </div>
-          </div>
-
-          <div class="form-group">
-            <label class="form-label">
-              <i class="fas fa-phone-alt"></i> Phone Number
-            </label>
-            <input
-              type="tel"
-              class="form-control"
-              name="phone"
-              value="{{ form_data.phone|default:'' }}"
-              placeholder="09-XXXXXXXXX"
-              pattern="[0-9\-+]{9,15}"
-            />
-          </div>
-        </div>
-
-        <div class="form-row">
-          <div class="form-group">
-            <label class="form-label">
-              <i class="fas fa-briefcase"></i> Position <span style="color: var(--danger);">*</span>
-            </label>
-            <select class="form-control" name="position" required>
-              <option value="">Select Position</option>
-              <option value="Lecturer" {% if form_data.position == 'Lecturer' %}selected{% endif %}>Lecturer</option>
-              <option value="Assistant Lecturer" {% if form_data.position == 'Assistant Lecturer' %}selected{% endif %}>Assistant Lecturer</option>
-              <option value="Tutor" {% if form_data.position == 'Tutor' %}selected{% endif %}>Tutor</option>
-            </select>
-          </div>
-
-          <div class="form-group">
-            <label class="form-label">
-              <i class="fas fa-building"></i> Department <span style="color: var(--danger);">*</span>
-            </label>
-            <select class="form-control" name="department" required>
-              <option value="">Select Department</option>
-              <option value="ITSM" {% if form_data.department == 'ITSM' %}selected{% endif %}>ITSM</option>
-
-            </select>
-          </div>
-        </div>
-
-        <div class="form-row">
-          <div class="form-group">
-            <label class="form-label">
-              <i class="fas fa-lock"></i> Password <span style="color: var(--danger);">*</span>
-            </label>
-            <input
-              type="password"
-              class="form-control"
-              name="password"
-              placeholder="Create secure password"
-              required
-            />
-            <small style="color: var(--text-muted); font-size: 11px;">Use at least 8 characters and avoid common passwords.</small>
-          </div>
-
-          <div class="form-group">
-            <label class="form-label">
-              <i class="fas fa-check-double"></i> Confirm Password <span style="color: var(--danger);">*</span>
-            </label>
-            <input
-              type="password"
-              class="form-control"
-              name="confirm_password"
-              placeholder="Repeat password"
-              required
-            />
-          </div>
-        </div>
-
-        <div class="form-row">
-          <div class="form-group">
-            <label class="form-label">
-              <i class="fas fa-user-shield"></i> Access Role <span style="color: var(--danger);">*</span>
-            </label>
-            <select class="form-control" name="role" required>
-              <option value="Admin" {% if form_data.role != 'ReadOnly' %}selected{% endif %}>Administrator — view and edit</option>
-              <option value="ReadOnly" {% if form_data.role == 'ReadOnly' %}selected{% endif %}>Read-only reporter — view only</option>
-            </select>
-          </div>
-        </div>
-
-        <div style="display: flex; gap: 10px; margin-top: 30px">
-          <button type="submit" class="btn btn-primary">
-            <i class="fas fa-user-plus"></i> Create Account
-          </button>
-          <button type="reset" class="btn btn-outline" onclick="resetForm()">
-            <i class="fas fa-undo"></i> Clear Form
-          </button>
-        </div>
-      </form>
-
-      <hr style="margin: 30px 0 20px; border-color: var(--border-light);">
-
-      <div style="background: rgba(33, 150, 243, 0.05); border-radius: 12px; padding: 16px;">
-        <p style="margin: 0; font-size: 13px; color: var(--text-muted);">
-          <i class="fas fa-info-circle" style="color: var(--action-blue);"></i> 
-          <strong>Note:</strong> All new accounts are created with "Active" status by default. 
-          Users will be able to log in immediately after account creation. 
-          Make sure to provide accurate MIIT email addresses (@miit.edu.mm) for password recovery and notifications.
-        </p>
-      </div>
+{% if not editing_account %}
+<section class="data-section access-roster" aria-labelledby="accounts-heading">
+  <div class="section-heading-row">
+    <div>
+      <h2 class="section-title" id="accounts-heading">Current accounts</h2>
+      <p class="section-copy">Daw Moe Thida always has full access. Other accounts receive only the access selected below.</p>
     </div>
+    <span class="account-count">{{ staff_accounts|length }} account{{ staff_accounts|length|pluralize }}</span>
   </div>
-</div>
+  <div class="table-responsive">
+    <table class="table access-table">
+      <thead><tr><th>Staff member</th><th>Status</th><th>Authorization</th><th><span class="visually-hidden">Actions</span></th></tr></thead>
+      <tbody>
+        {% for account in staff_accounts %}
+        <tr>
+          <td><strong>{{ account.name }}</strong><span class="account-meta">{{ account.username }} · {{ account.outlook_mail }}</span></td>
+          <td><span class="status-pill {% if account.status == 'Active' %}is-active{% else %}is-inactive{% endif %}">{{ account.status }}</span></td>
+          <td>
+            {% if account.is_account_owner %}<span class="owner-badge"><i class="fas fa-shield-halved"></i> Full owner access</span>
+            {% elif account.permissions %}{{ account.permissions|length }} permission{{ account.permissions|length|pluralize }}
+            {% else %}<span class="text-muted">No system areas</span>{% endif %}
+          </td>
+          <td class="text-end">
+            {% if not account.is_account_owner %}<a class="btn btn-outline btn-sm" href="{% url 'rental_system:edit_staff_access' account.id %}">Manage access</a>
+            {% else %}<span class="protected-label">Protected</span>{% endif %}
+          </td>
+        </tr>
+        {% empty %}<tr><td colspan="4" class="empty-state">No ITSM accounts have been created yet.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %}
+
+<form method="post" action="{% if editing_account %}{% url 'rental_system:edit_staff_access' editing_account.id %}{% else %}{% url 'rental_system:assign_new_admin' %}{% endif %}" class="access-form">
+  {% csrf_token %}
+  <section class="data-section" aria-labelledby="details-heading">
+    <div class="section-heading-row"><div>
+      <h2 class="section-title" id="details-heading">{% if editing_account %}Edit {{ editing_account.name }}{% else %}Add an ITSM account{% endif %}</h2>
+      <p class="section-copy">{% if editing_account %}Update account details, status, permissions, or set a new temporary password.{% else %}The staff member can sign in immediately after the account is created.{% endif %}</p>
+    </div></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label" for="id_name">Full name *</label><input class="form-control" id="id_name" name="name" value="{{ form_data.name|default:'' }}" autocomplete="name" required></div>
+      <div class="form-group"><label class="form-label" for="id_username">Username *</label><input class="form-control" id="id_username" name="username" value="{{ form_data.username|default:'' }}" autocomplete="username" {% if editing_account %}readonly aria-describedby="username-help"{% else %}required{% endif %}><small id="username-help">{% if editing_account %}Usernames cannot be changed.{% else %}Used internally to identify this account.{% endif %}</small></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label" for="id_email">MIIT email *</label><input class="form-control" type="email" id="id_email" name="email" value="{{ form_data.email|default:'' }}" placeholder="name@miit.edu.mm" autocomplete="email" required></div>
+      <div class="form-group"><label class="form-label" for="id_phone">Phone number</label><input class="form-control" id="id_phone" name="phone" value="{{ form_data.phone|default:'' }}" inputmode="tel" autocomplete="tel" pattern="[0-9+\-]{9,15}"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label" for="id_position">Position *</label><input class="form-control" id="id_position" name="position" value="{{ form_data.position|default:'' }}" placeholder="e.g. IT Support Officer" required></div>
+      <div class="form-group"><label class="form-label" for="id_department">Department</label><input class="form-control" id="id_department" name="department" value="ITSM" readonly></div>
+    </div>
+    {% if editing_account %}
+    <div class="form-row">
+      <div class="form-group"><label class="form-label" for="id_status">Account status</label><select class="form-control" id="id_status" name="status"><option value="Active" {% if form_data.status == 'Active' %}selected{% endif %}>Active — can sign in</option><option value="Resigned" {% if form_data.status == 'Resigned' %}selected{% endif %}>Inactive — sign-in blocked</option></select></div>
+      <div class="form-group"><label class="form-label" for="id_password">New temporary password</label><input class="form-control" type="password" id="id_password" name="password" autocomplete="new-password"><small>Leave blank to keep the current password.</small></div>
+    </div>
+    {% else %}
+    <div class="form-row">
+      <div class="form-group"><label class="form-label" for="id_password">Temporary password *</label><input class="form-control" type="password" id="id_password" name="password" autocomplete="new-password" required><small>Use at least 8 characters and share it through a trusted channel.</small></div>
+      <div class="form-group"><label class="form-label" for="id_confirm_password">Confirm password *</label><input class="form-control" type="password" id="id_confirm_password" name="confirm_password" autocomplete="new-password" required></div>
+    </div>
+    {% endif %}
+  </section>
+
+  <section class="data-section permission-section" aria-labelledby="permissions-heading">
+    <div class="section-heading-row"><div><h2 class="section-title" id="permissions-heading">Authorization</h2><p class="section-copy">“View and manage” allows creating, importing, assigning, or changing records in that area.</p></div></div>
+    <div class="permission-list">
+      {% for key, label, description, can_manage in permission_groups %}{% with selected=form_data.access_levels|get_item:key %}
+      <fieldset class="permission-row">
+        <legend><span>{{ label }}</span><small>{{ description }}</small></legend>
+        <div class="access-options">
+          <label><input type="radio" name="access_{{ key }}" value="none" {% if selected == 'none' or not selected %}checked{% endif %}> No access</label>
+          <label><input type="radio" name="access_{{ key }}" value="view" {% if selected == 'view' %}checked{% endif %}> View only</label>
+          {% if can_manage %}<label><input type="radio" name="access_{{ key }}" value="manage" {% if selected == 'manage' %}checked{% endif %}> View and manage</label>{% endif %}
+        </div>
+      </fieldset>
+      {% endwith %}{% endfor %}
+    </div>
+  </section>
+  <div class="form-actions"><button class="btn btn-primary" type="submit"><i class="fas fa-{% if editing_account %}check{% else %}user-plus{% endif %}"></i> {% if editing_account %}Save access{% else %}Create account{% endif %}</button>{% if editing_account %}<a class="btn btn-outline" href="{% url 'rental_system:assign_new_admin' %}">Cancel</a>{% endif %}</div>
+</form>
 
 <style>
-  /* Additional inline styles to match profile_settings */
-  .alert {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-  .alert i {
-    font-size: 1.1rem;
-  }
-  .form-group small {
-    display: block;
-    margin-top: 5px;
-  }
-  hr {
-    border: none;
-    border-top: 1px solid var(--border-light);
-  }
-  
-  /* Highlight input when invalid */
-  .form-control.invalid {
-    border-color: #e74c3c;
-    background-color: #fff5f5;
-  }
+  .access-header{align-items:flex-end}.access-eyebrow{margin:0 0 4px;color:var(--purple-dark);font-size:.75rem;font-weight:700;letter-spacing:.09em;text-transform:uppercase}.access-roster{margin-bottom:24px}.section-heading-row{display:flex;align-items:flex-start;justify-content:space-between;gap:24px;margin-bottom:22px}.section-copy{margin:7px 0 0;color:var(--text-muted);font-size:.9rem}.account-count,.status-pill,.owner-badge{display:inline-flex;align-items:center;gap:6px;border-radius:999px;font-size:.78rem;font-weight:700;white-space:nowrap}.account-count{padding:7px 11px;color:var(--purple-dark);background:rgba(91,114,181,.12)}.access-table{margin:0;vertical-align:middle}.access-table th{color:var(--text-muted);font-size:.75rem;letter-spacing:.04em;text-transform:uppercase}.account-meta{display:block;margin-top:3px;color:var(--text-muted);font-size:.79rem;font-weight:400}.status-pill{padding:5px 9px}.status-pill.is-active{color:#176b3a;background:#e8f5ed}.status-pill.is-inactive{color:#8a3d24;background:#fff0e8}.owner-badge{padding:6px 9px;color:#493f09;background:rgba(221,230,89,.42)}.protected-label{color:var(--text-muted);font-size:.78rem}.empty-state{padding:32px!important;color:var(--text-muted);text-align:center}.access-form .data-section+.data-section{margin-top:24px}.form-group small{display:block;margin-top:6px;color:var(--text-muted);font-size:.77rem}.permission-list{border-top:1px solid var(--border-color)}.permission-row{display:grid;grid-template-columns:minmax(220px,1fr) minmax(390px,1.25fr);align-items:center;gap:24px;margin:0;padding:18px 0;border:0;border-bottom:1px solid var(--border-color)}.permission-row legend{margin:0;font-size:.94rem;font-weight:700}.permission-row legend small{display:block;margin-top:4px;color:var(--text-muted);font-size:.77rem;font-weight:400;line-height:1.4}.access-options{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.access-options label{display:flex;align-items:center;gap:7px;min-height:42px;margin:0;padding:8px 10px;color:var(--text-secondary);background:rgba(255,255,255,.42);border:1px solid var(--border-color);border-radius:8px;cursor:pointer;font-size:.79rem}.access-options input{accent-color:var(--purple-dark)}.form-actions{display:flex;gap:10px;margin-top:24px}@media(max-width:850px){.permission-row{grid-template-columns:1fr;gap:12px}.access-options{grid-template-columns:1fr}}@media(max-width:600px){.access-header,.section-heading-row{align-items:stretch;flex-direction:column}.data-section{padding:18px}.form-actions{flex-direction:column}}
 </style>
-
-<script>
-  // Function to validate MIIT email
-  function validateMIITEmail(email) {
-    if (!email) return false;
-    email = email.trim().toLowerCase();
-    return email.endsWith('@miit.edu.mm') && email.length > '@miit.edu.mm'.length;
-  }
-  
-  // Real-time email validation
-  const emailInput = document.querySelector('input[name="email"]');
-  const emailErrorDiv = document.getElementById('emailError');
-  
-  if (emailInput) {
-    // Validate on input (as user types)
-    emailInput.addEventListener('input', function() {
-      const email = this.value;
-      if (email && !validateMIITEmail(email)) {
-        emailErrorDiv.style.display = 'block';
-        this.classList.add('invalid');
-      } else {
-        emailErrorDiv.style.display = 'none';
-        this.classList.remove('invalid');
-      }
-    });
-    
-    // Validate on blur (when user leaves the field)
-    emailInput.addEventListener('blur', function() {
-      const email = this.value;
-      if (email && !validateMIITEmail(email)) {
-        emailErrorDiv.style.display = 'block';
-        this.classList.add('invalid');
-      } else {
-        emailErrorDiv.style.display = 'none';
-        this.classList.remove('invalid');
-      }
-    });
-  }
-  
-  // Client-side validation for form submission
-  document.getElementById('adminForm').addEventListener('submit', function(e) {
-    const password = document.querySelector('input[name="password"]');
-    const confirm = document.querySelector('input[name="confirm_password"]');
-    const username = document.querySelector('input[name="username"]');
-    const email = document.querySelector('input[name="email"]');
-    
-    // Validate email format (must be @miit.edu.mm)
-    if (email.value.trim() && !validateMIITEmail(email.value)) {
-      e.preventDefault();
-      alert('❌ Please use a valid MIIT email address ending with @miit.edu.mm');
-      email.focus();
-      return false;
-    }
-    
-    // Validate password match
-    if (password.value !== confirm.value) {
-      e.preventDefault();
-      alert('❌ Passwords do not match. Please re-enter.');
-      confirm.focus();
-      return false;
-    }
-    
-    // Validate password length
-    if (password.value.length < 6) {
-      e.preventDefault();
-      alert('⚠️ Password must be at least 6 characters long.');
-      password.focus();
-      return false;
-    }
-    
-    // Validate username length
-    if (username.value.trim().length < 3) {
-      e.preventDefault();
-      alert('⚠️ Username must be at least 3 characters.');
-      username.focus();
-      return false;
-    }
-    
-    // Validate email is not empty
-    if (!email.value.trim()) {
-      e.preventDefault();
-      alert('⚠️ Please enter an email address.');
-      email.focus();
-      return false;
-    }
-    
-    return true;
-  });
-  
-  // Reset form function
-  async function resetForm() {
-    const confirmed = await requestConfirmation({
-      title: 'Clear form?',
-      message: 'All information entered in this form will be removed.',
-      confirmLabel: 'Clear form',
-    });
-    if (confirmed) {
-      document.querySelector('form').reset();
-      // Clear any error messages
-      if (emailErrorDiv) {
-        emailErrorDiv.style.display = 'none';
-      }
-      if (emailInput) {
-        emailInput.classList.remove('invalid');
-      }
-    }
-  }
-</script>
 {% endblock %}
