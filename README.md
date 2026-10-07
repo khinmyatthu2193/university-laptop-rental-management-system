@@ -137,6 +137,8 @@ Application access is managed inside UniKit:
 
 Use **ITSM User Access** in the application sidebar to add accounts, change their status, reset a temporary password, and update module permissions. Django admin access remains separate and is not required for this workflow.
 
+New staff accounts—and accounts whose password is reset by Daw Moe Thida—must replace the temporary password after signing in before they can open any operational area.
+
 Account creation no longer emails or logs plaintext passwords. Give a temporary password to the staff member through a separate trusted channel and have them change it after first login.
 
 ### Backups

@@ -319,19 +319,6 @@
   }
 </style>
 
-<!-- Messages Container -->
-{% if messages %}
-<div class="message-container">
-  {% for message in messages %}
-  <div class="message message-{{ message.tags }}" id="message-{{ forloop.counter }}">
-    <i class="fas fa-{% if message.tags == 'success' %}check-circle{% elif message.tags == 'error' %}exclamation-circle{% else %}info-circle{% endif %}"></i>
-    <span>{{ message }}</span>
-    <i class="fas fa-times message-close" onclick="this.parentElement.remove()"></i>
-  </div>
-  {% endfor %}
-</div>
-{% endif %}
-
 <div class="content-header">
   <div>
     <h1 class="page-title">System Preferences</h1>

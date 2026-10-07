@@ -27,7 +27,7 @@
         {% for account in staff_accounts %}
         <tr>
           <td><strong>{{ account.name }}</strong><span class="account-meta">{{ account.username }} · {{ account.outlook_mail }}</span></td>
-          <td><span class="status-pill {% if account.status == 'Active' %}is-active{% else %}is-inactive{% endif %}">{{ account.status }}</span></td>
+          <td><span class="status-pill {% if account.status == 'Active' %}is-active{% else %}is-inactive{% endif %}">{{ account.status }}</span>{% if account.must_change_password %}<span class="account-meta">Password change required</span>{% endif %}</td>
           <td>
             {% if account.is_account_owner %}<span class="owner-badge"><i class="fas fa-shield-halved"></i> Full owner access</span>
             {% elif account.permissions %}{{ account.permissions|length }} permission{{ account.permissions|length|pluralize }}

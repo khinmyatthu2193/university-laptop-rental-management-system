@@ -681,21 +681,21 @@ document.addEventListener('DOMContentLoaded', function() {
 
     if (emailInput && !isMiitEmail(emailValue)) {
         e.preventDefault();
-        alert('We only accept MIIT Outlook mail (miit.edu.mm).');
+        showNotification('We only accept MIIT Outlook mail (miit.edu.mm).', { title: 'Check email address', type: 'error' });
         emailInput.focus();
         return;
     }
 
     if (studentIdInput && hasDuplicateStudentId(studentIdValue, currentPk)) {
         e.preventDefault();
-        alert('This Student ID already exists.');
+        showNotification('This Student ID already exists.', { title: 'Duplicate student', type: 'error' });
         studentIdInput.focus();
         return;
     }
 
     if (emailInput && hasDuplicateEmail(emailValue, currentPk)) {
         e.preventDefault();
-        alert('This email already exists.');
+        showNotification('This email already exists.', { title: 'Duplicate email', type: 'error' });
         emailInput.focus();
         return;
     }

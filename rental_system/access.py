@@ -41,6 +41,8 @@ PERMISSION_LANDING_PAGES = (
 
 
 def landing_page_for(staff):
+    if staff.must_change_password:
+        return 'rental_system:account_settings'
     for permission, route_name in PERMISSION_LANDING_PAGES:
         if staff.has_permission(permission):
             return route_name
@@ -74,6 +76,15 @@ def staff_access(view_func=None, *, allow_self_service_write=False):
 
             request.management_staff = staff
             request.session['staff_id'] = staff.id
+
+            allowed_during_password_change = {
+                'account_settings', 'change_password', 'logout',
+            }
+            resolver_match = getattr(request, 'resolver_match', None)
+            current_view = resolver_match.url_name if resolver_match else None
+            if staff.must_change_password and current_view not in allowed_during_password_change:
+                messages.warning(request, 'Change your temporary password before using UniKit.')
+                return redirect('rental_system:account_settings')
 
             return func(request, *args, **kwargs)
 

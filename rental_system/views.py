@@ -398,6 +398,8 @@ def login_view(request):
                 login(request, authenticated_user)
                 cache.delete(attempt_key)
                 request.session['staff_id'] = staff.id
+                if staff.must_change_password:
+                    messages.warning(request, 'Welcome to UniKit. Please replace your temporary password before continuing.')
                 if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                     return JsonResponse({
                         'success': True,
@@ -1486,6 +1488,8 @@ def change_password(request):
 
             request.user.set_password(new_password)
             request.user.save(update_fields=['password'])
+            staff.must_change_password = False
+            staff.save(update_fields=['must_change_password'])
             update_session_auth_hash(request, request.user)
             messages.success(request, 'Password changed successfully!')
         except ManagementStaff.DoesNotExist:
@@ -2081,6 +2085,7 @@ def assign_new_admin(request):
                     department=department,
                     role='Admin',
                     permissions=permissions,
+                    must_change_password=True,
                     status='Active',
                 )
                 AuditLog.objects.create(
@@ -2157,7 +2162,10 @@ def edit_staff_access(request, pk):
                 account.auth_user.is_active = status == 'Active'
                 if password:
                     account.auth_user.set_password(password)
+                    account.must_change_password = True
                 account.auth_user.save()
+                if password:
+                    account.save(update_fields=['must_change_password'])
                 AuditLog.objects.create(
                     staff=current_staff,
                     action_type='Update',

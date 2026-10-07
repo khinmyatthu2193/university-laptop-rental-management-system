@@ -1420,6 +1420,21 @@
         background: rgba(15, 23, 42, 0.38);
       }
 
+      .notification-dialog {
+        width: min(440px, calc(100% - 32px)); padding: 0; color: var(--text-primary);
+        background: #fff; border: 0; border-radius: 14px;
+        box-shadow: 0 24px 70px rgba(30, 58, 95, .28);
+      }
+      .notification-dialog::backdrop { background: rgba(15, 23, 42, .42); }
+      .notification-dialog-content { margin: 0; padding: 24px; }
+      .notification-heading { margin: 0 0 16px; font-size: 1.15rem; }
+      .notification-list { display: grid; gap: 10px; margin: 0 0 20px; padding: 0; list-style: none; }
+      .notification-item { display: flex; align-items: flex-start; gap: 10px; padding: 12px; background: #f5f7fb; border-left: 4px solid var(--blue); border-radius: 8px; line-height: 1.45; }
+      .notification-item.success { border-left-color: var(--success-color); }
+      .notification-item.error { border-left-color: var(--danger-color); }
+      .notification-item.warning { border-left-color: var(--warning-color); }
+      .notification-actions { display: flex; justify-content: flex-end; }
+
       .confirmation-dialog-content {
         margin: 0;
       }
@@ -2020,19 +2035,7 @@
 
       <!-- Main Content -->
       <main class="main-content">
-        {% if messages %} {% for message in messages %}
-        <div
-          class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show"
-          role="alert"
-        >
-          {{ message }}
-          <button
-            type="button"
-            class="btn-close"
-            data-bs-dismiss="alert"
-          ></button>
-        </div>
-        {% endfor %} {% endif %} {% block content %}{% endblock %}
+        {% block content %}{% endblock %}
       </main>
     </div>
 
@@ -2046,6 +2049,21 @@
           <button class="btn btn-outline" type="submit" value="cancel">Cancel</button>
           <button class="btn btn-primary" type="submit" value="confirm" id="confirmationDialogConfirm">Continue</button>
         </div>
+      </form>
+    </dialog>
+
+    <dialog class="notification-dialog" id="notificationDialog" aria-labelledby="notificationTitle">
+      <form class="notification-dialog-content" method="dialog">
+        <h2 class="notification-heading" id="notificationTitle">Notification</h2>
+        <ul class="notification-list" id="notificationList">
+          {% for message in messages %}
+          <li class="notification-item {{ message.tags|default:'info' }}">
+            <i class="fas fa-{% if message.tags == 'success' %}check-circle{% elif message.tags == 'error' %}exclamation-circle{% elif message.tags == 'warning' %}triangle-exclamation{% else %}circle-info{% endif %}" aria-hidden="true"></i>
+            <span>{{ message }}</span>
+          </li>
+          {% endfor %}
+        </ul>
+        <div class="notification-actions"><button class="btn btn-primary" type="submit">OK</button></div>
       </form>
     </dialog>
 
@@ -2072,6 +2090,23 @@
         const confirmationDialogTitle = document.getElementById("confirmationDialogTitle");
         const confirmationDialogDescription = document.getElementById("confirmationDialogDescription");
         const confirmationDialogConfirm = document.getElementById("confirmationDialogConfirm");
+        const notificationDialog = document.getElementById("notificationDialog");
+        const notificationTitle = document.getElementById("notificationTitle");
+        const notificationList = document.getElementById("notificationList");
+
+        window.showNotification = function (message, { title = "Notification", type = "info" } = {}) {
+          notificationTitle.textContent = title;
+          notificationList.replaceChildren();
+          const item = document.createElement("li");
+          item.className = `notification-item ${type}`;
+          item.textContent = message;
+          notificationList.appendChild(item);
+          if (!notificationDialog.open) notificationDialog.showModal();
+        };
+
+        if (notificationList.children.length) {
+          if (!notificationDialog.open) notificationDialog.showModal();
+        }
 
         window.requestConfirmation = function ({
           title = "Confirm action",

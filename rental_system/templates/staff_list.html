@@ -831,7 +831,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const emailInput = form.querySelector('.miit-email-input');
         if (emailInput && !isMiitEmail(emailInput.value)) {
             e.preventDefault();
-            alert('We only accept MIIT Outlook mail (miit.edu.mm).');
+            showNotification('We only accept MIIT Outlook mail (miit.edu.mm).', { title: 'Check email address', type: 'error' });
             emailInput.focus();
         }
     });

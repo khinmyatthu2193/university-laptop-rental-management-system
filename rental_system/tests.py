@@ -128,10 +128,40 @@ class PhaseOneSecurityTests(TestCase):
         self.assertRedirects(response, reverse('rental_system:assign_new_admin'))
         created = ManagementStaff.objects.get(username='new_itsm_staff')
         self.assertEqual(created.department, 'ITSM')
+        self.assertTrue(created.must_change_password)
         self.assertEqual(
             created.permissions,
             ['students.view', 'inventory.view', 'inventory.manage'],
         )
+
+    def test_temporary_password_must_be_changed_before_system_access(self):
+        self.create_management_staff(username='daw_moe_thida')
+        _user, profile = self.create_management_staff(
+            role='Admin', username='temporary_user', permissions=['inventory.view']
+        )
+        profile.must_change_password = True
+        profile.save(update_fields=['must_change_password'])
+
+        response = self.client.post(reverse('rental_system:login'), {
+            'email': profile.outlook_mail,
+            'password': self.password,
+        })
+        self.assertRedirects(response, reverse('rental_system:account_settings'))
+        self.assertRedirects(
+            self.client.get(reverse('rental_system:inventory_list')),
+            reverse('rental_system:account_settings'),
+        )
+
+        new_password = 'A-different-strong-password-2026'
+        response = self.client.post(reverse('rental_system:change_password'), {
+            'current_password': self.password,
+            'new_password': new_password,
+            'confirm_password': new_password,
+        })
+        self.assertRedirects(response, reverse('rental_system:account_settings'))
+        profile.refresh_from_db()
+        self.assertFalse(profile.must_change_password)
+        self.assertEqual(self.client.get(reverse('rental_system:inventory_list')).status_code, 200)
 
     def test_only_system_administrator_can_create_accounts(self):
         user, _ = self.create_management_staff(role='Admin', username='admin')

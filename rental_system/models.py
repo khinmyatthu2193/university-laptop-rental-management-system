@@ -32,6 +32,7 @@ class ManagementStaff(models.Model):
     department = models.CharField(max_length=30)
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='Admin')
     permissions = models.JSONField(default=list, blank=True)
+    must_change_password = models.BooleanField(default=False)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Active')
     created_at = models.DateTimeField(auto_now_add=True)
 
