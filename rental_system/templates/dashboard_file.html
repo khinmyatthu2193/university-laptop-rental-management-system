@@ -1,377 +1,487 @@
-{% extends "home.html" %} {% load static %} {% block content %}
-<!-- Main Content -->
-<div class="dashboard-content">
-  <!-- Dashboard Tab -->
-  <div class="content-tabs active" id="dashboard">
-    <div class="content-header">
+{% extends "home.html" %}
+
+{% block title %}Dashboard | MIIT Laptop Rental Management System{% endblock %}
+
+{% block extra_css %}
+<style>
+  .main-content { background: #f8fafc; }
+  .dashboard-page {
+    --db-primary: #142b57;
+    --db-bg: #f8fafc;
+    --db-card: #fff;
+    --db-text: #0f172a;
+    --db-muted: #64748b;
+    --db-border: #e2e8f0;
+    --db-success: #16a34a;
+    --db-warning: #d97706;
+    --db-danger: #dc2626;
+    width: 100%;
+    color: var(--db-text);
+  }
+  .dashboard-page .dashboard-header {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    gap: 24px; margin-bottom: 24px;
+  }
+  .dashboard-page .dashboard-heading {
+    margin: 0 0 6px; color: var(--db-text); font-size: clamp(1.65rem, 2.4vw, 2rem);
+    font-weight: 700; letter-spacing: -.025em; line-height: 1.2;
+  }
+  .dashboard-page .dashboard-subtitle {
+    margin: 0; color: var(--db-muted); font-size: .94rem; line-height: 1.5;
+  }
+  .dashboard-page .dashboard-actions { display: flex; flex: 0 0 auto; gap: 10px; }
+  .dashboard-page .dashboard-button {
+    min-height: 40px; padding: 9px 16px; border-radius: 8px; font-size: .875rem;
+    font-weight: 600; line-height: 1; transition: background-color 160ms ease,
+      border-color 160ms ease, color 160ms ease, box-shadow 160ms ease;
+  }
+  .dashboard-page .dashboard-button.btn-primary {
+    color: #fff; background: var(--db-primary); border: 1px solid var(--db-primary);
+  }
+  .dashboard-page .dashboard-button.btn-primary:hover {
+    color: #fff; background: #0d2045; border-color: #0d2045; transform: none; box-shadow: none;
+  }
+  .dashboard-page .dashboard-button.btn-outline {
+    color: var(--db-primary); background: #fff; border: 1px solid #cbd5e1;
+  }
+  .dashboard-page .dashboard-button.btn-outline:hover {
+    color: var(--db-primary); background: #f1f5f9; border-color: #94a3b8; transform: none;
+  }
+  .dashboard-page .dashboard-button:focus-visible,
+  .dashboard-page .modal-close-button:focus-visible,
+  .dashboard-page .form-control:focus-visible {
+    outline: 3px solid rgba(20,43,87,.22); outline-offset: 2px; box-shadow: none;
+  }
+  .dashboard-page .primary-metrics {
+    display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 16px; margin-bottom: 16px;
+  }
+  .dashboard-page .secondary-metrics {
+    display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px; margin-bottom: 24px;
+  }
+  .dashboard-page .metric-card {
+    min-width: 0; padding: 20px; background: var(--db-card);
+    border: 1px solid var(--db-border); border-radius: 12px;
+    box-shadow: 0 1px 2px rgba(15,23,42,.035);
+    transition: border-color 160ms ease, box-shadow 160ms ease;
+  }
+  .dashboard-page .metric-card:hover {
+    background: #fff; border-color: #cbd5e1; transform: none;
+    box-shadow: 0 4px 12px rgba(15,23,42,.055);
+  }
+  .dashboard-page .metric-card-main {
+    display: flex; align-items: flex-start; justify-content: space-between; gap: 16px;
+  }
+  .dashboard-page .metric-label {
+    margin: 0 0 10px; color: var(--db-muted); font-size: .82rem; font-weight: 600; line-height: 1.3;
+  }
+  .dashboard-page .metric-value {
+    margin: 0; color: var(--db-text); font-size: 2rem; font-variant-numeric: tabular-nums;
+    font-weight: 700; letter-spacing: -.035em; line-height: 1;
+  }
+  .dashboard-page .metric-icon {
+    display: inline-flex; width: 42px; height: 42px; flex: 0 0 42px;
+    align-items: center; justify-content: center; color: var(--db-primary);
+    background: #eff6ff; border-radius: 10px;
+  }
+  .dashboard-page .metric-icon svg { width: 21px; height: 21px; }
+  .dashboard-page .metric-card--available .metric-icon { color: var(--db-success); background: #f0fdf4; }
+  .dashboard-page .metric-card--repair .metric-icon { color: var(--db-warning); background: #fffbeb; }
+  .dashboard-page .metric-card--overdue .metric-icon { color: var(--db-danger); background: #fef2f2; }
+  .dashboard-page .secondary-metrics .metric-card { padding: 16px 20px; }
+  .dashboard-page .secondary-metrics .metric-card-main { align-items: center; }
+  .dashboard-page .secondary-metrics .metric-content {
+    display: flex; min-width: 0; align-items: baseline; gap: 12px;
+  }
+  .dashboard-page .secondary-metrics .metric-label { margin: 0; }
+  .dashboard-page .secondary-metrics .metric-value { font-size: 1.65rem; }
+  .dashboard-page .dashboard-panel {
+    margin: 0 0 24px; padding: 0; overflow: hidden; background: var(--db-card);
+    border: 1px solid var(--db-border); border-radius: 12px;
+    box-shadow: 0 1px 2px rgba(15,23,42,.035);
+  }
+  .dashboard-page .panel-header {
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    padding: 18px 20px; border-bottom: 1px solid var(--db-border);
+  }
+  .dashboard-page .panel-title {
+    margin: 0; color: var(--db-text); font-size: 1rem; font-weight: 700;
+    letter-spacing: -.01em; line-height: 1.4;
+  }
+  .dashboard-page .panel-description {
+    margin: 3px 0 0; color: var(--db-muted); font-size: .8rem;
+  }
+  .dashboard-page .table-responsive { border: 0; border-radius: 0; }
+  .dashboard-page .assignments-table {
+    width: 100%; min-width: 720px; margin: 0; border-collapse: collapse;
+  }
+  .dashboard-page .assignments-table th {
+    padding: 11px 20px; color: #475569; background: #f8fafc;
+    border-bottom: 1px solid var(--db-border); font-size: .72rem; font-weight: 700;
+    letter-spacing: .045em; text-align: left; text-transform: uppercase; white-space: nowrap;
+  }
+  .dashboard-page .assignments-table td {
+    padding: 15px 20px; color: #334155; border-bottom: 1px solid #f1f5f9;
+    font-size: .84rem; line-height: 1.4; vertical-align: middle;
+  }
+  .dashboard-page .assignments-table tbody tr { transition: background-color 140ms ease; }
+  .dashboard-page .assignments-table tbody tr:not(.empty-row):hover { background: #f8fafc; }
+  .dashboard-page .assignments-table tbody tr:last-child td { border-bottom: 0; }
+  .dashboard-page .person-name { display: block; color: var(--db-text); font-weight: 600; }
+  .dashboard-page .person-type {
+    display: block; margin-top: 2px; color: var(--db-muted); font-size: .75rem;
+  }
+  .dashboard-page .serial-number,.dashboard-page time { font-variant-numeric: tabular-nums; }
+  .dashboard-page .serial-number { color: var(--db-text); font-weight: 600; }
+  .dashboard-page .status-badge {
+    display: inline-flex; align-items: center; gap: 6px; padding: 5px 9px;
+    border: 1px solid transparent; border-radius: 999px; font-size: .72rem;
+    font-weight: 700; line-height: 1;
+  }
+  .dashboard-page .status-badge::before {
+    width: 6px; height: 6px; background: currentColor; border-radius: 50%; content: "";
+  }
+  .dashboard-page .status-badge--issued { color: #1d4ed8; background: #eff6ff; border-color: #dbeafe; }
+  .dashboard-page .status-badge--returned { color: #15803d; background: #f0fdf4; border-color: #dcfce7; }
+  .dashboard-page .status-badge--overdue { color: #b91c1c; background: #fef2f2; border-color: #fee2e2; }
+  .dashboard-page .status-badge--neutral { color: #475569; background: #f8fafc; border-color: #e2e8f0; }
+  .dashboard-page .empty-row td { padding: 44px 20px; text-align: center; }
+  .dashboard-page .empty-icon,.dashboard-page .chart-empty-icon {
+    display: inline-flex; align-items: center; justify-content: center;
+    color: #94a3b8; background: #f1f5f9; border-radius: 10px;
+  }
+  .dashboard-page .empty-icon { width: 40px; height: 40px; margin-bottom: 12px; }
+  .dashboard-page .empty-title {
+    margin: 0 0 4px; color: var(--db-text); font-size: .9rem; font-weight: 700;
+  }
+  .dashboard-page .empty-copy { margin: 0; color: var(--db-muted); font-size: .8rem; }
+  .dashboard-page .analytics-grid {
+    display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px;
+  }
+  .dashboard-page .analytics-grid .dashboard-panel { min-width: 0; margin-bottom: 0; }
+  .dashboard-page .chart-body { position: relative; height: 300px; padding: 20px; }
+  .dashboard-page .chart-canvas {
+    display: none; width: 100% !important; height: 100% !important;
+  }
+  .dashboard-page .chart-canvas.is-ready { display: block; }
+  .dashboard-page .chart-state {
+    display: flex; height: 100%; align-items: center; justify-content: center;
+    color: var(--db-muted); text-align: center;
+  }
+  .dashboard-page .chart-state[hidden] { display: none; }
+  .dashboard-page .chart-loading-content,.dashboard-page .chart-empty-content {
+    display: flex; max-width: 280px; flex-direction: column; align-items: center;
+  }
+  .dashboard-page .loading-spinner {
+    width: 24px; height: 24px; margin-bottom: 10px; border: 2px solid #e2e8f0;
+    border-top-color: var(--db-primary); border-radius: 50%;
+    animation: dashboard-spin 800ms linear infinite;
+  }
+  .dashboard-page .chart-empty-icon {
+    width: 44px; height: 44px; margin-bottom: 12px; font-size: 1rem;
+  }
+  .dashboard-page .dashboard-modal-overlay {
+    position: fixed; z-index: 2000; inset: 0; display: none; align-items: center;
+    justify-content: center; padding: 20px; background: rgba(15,23,42,.56);
+  }
+  .dashboard-page .dashboard-modal-overlay.active { display: flex; }
+  .dashboard-page .dashboard-modal {
+    position: relative; display: block; width: min(560px,100%); max-height: calc(100dvh - 40px);
+    overflow-y: auto; color: var(--db-text); background: #fff;
+    border: 1px solid var(--db-border); border-radius: 12px;
+    box-shadow: 0 24px 70px rgba(15,23,42,.24);
+  }
+  .dashboard-page .dashboard-modal .modal-header,
+  .dashboard-page .dashboard-modal .modal-footer { padding: 18px 20px; border-color: var(--db-border); }
+  .dashboard-page .dashboard-modal .modal-body { padding: 20px; }
+  .dashboard-page .dashboard-modal .modal-title {
+    margin: 0; color: var(--db-text); font-size: 1.08rem; font-weight: 700;
+  }
+  .dashboard-page .modal-close-button {
+    display: inline-flex; width: 36px; height: 36px; align-items: center;
+    justify-content: center; padding: 0; color: var(--db-muted); background: transparent;
+    border: 0; border-radius: 8px; font-size: 1.35rem;
+  }
+  .dashboard-page .modal-close-button:hover { color: var(--db-text); background: #f1f5f9; }
+  .dashboard-page .form-group { margin-bottom: 18px; }
+  .dashboard-page .form-row {
+    display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px;
+  }
+  .dashboard-page .form-label {
+    margin-bottom: 7px; color: #334155; font-size: .82rem; font-weight: 600;
+  }
+  .dashboard-page .form-control {
+    min-height: 42px; border-color: #cbd5e1; border-radius: 8px; font-size: .875rem;
+  }
+  @keyframes dashboard-spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion:reduce) {
+    .dashboard-page *,.dashboard-page *::before,.dashboard-page *::after {
+      transition-duration: .01ms !important; animation-duration: .01ms !important;
+      animation-iteration-count: 1 !important;
+    }
+  }
+  @media (max-width:1199.98px) {
+    .dashboard-page .primary-metrics { grid-template-columns: repeat(2,minmax(0,1fr)); }
+    .dashboard-page .analytics-grid { grid-template-columns: 1fr; }
+  }
+  @media (max-width:767.98px) {
+    .dashboard-page .dashboard-header { flex-direction: column; }
+    .dashboard-page .dashboard-actions { width: 100%; }
+    .dashboard-page .dashboard-actions .dashboard-button { flex: 1; }
+    .dashboard-page .primary-metrics,.dashboard-page .secondary-metrics { grid-template-columns: 1fr; }
+    .dashboard-page .secondary-metrics .metric-content { display: block; }
+    .dashboard-page .secondary-metrics .metric-label { margin-bottom: 8px; }
+    .dashboard-page .panel-header { padding: 16px; }
+    .dashboard-page .assignments-table th,.dashboard-page .assignments-table td {
+      padding-right: 16px; padding-left: 16px;
+    }
+    .dashboard-page .chart-body { height: 280px; padding: 16px; }
+    .dashboard-page .form-row { grid-template-columns: 1fr; gap: 0; }
+  }
+  @media (max-width:480px) {
+    .dashboard-page .dashboard-actions { flex-direction: column; }
+    .dashboard-page .metric-card { padding: 18px; }
+    .dashboard-page .dashboard-modal-overlay { padding: 12px; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-page">
+  <section aria-labelledby="dashboard-title">
+    <header class="dashboard-header">
       <div>
-        <h1 class="page-title">Dashboard</h1>
-        <p class="page-subtitle">Overview of laptop inventory and current assignments.</p>
+        <h1 class="dashboard-heading" id="dashboard-title">Dashboard</h1>
+        <p class="dashboard-subtitle">Overview of laptop inventory and current assignments.</p>
       </div>
-      <div class="action-buttons">
-        {% if access.assignments.manage %}<button class="btn btn-primary" id="quickAssign">
-          <i class="fas fa-plus"></i> Quick Assign
-        </button>{% endif %}
-        <button class="btn btn-outline" onclick="exportData()">
-          <i class="fas fa-download"></i> Export
+      <div class="dashboard-actions" aria-label="Dashboard actions">
+        {% if access.assignments.manage %}
+        <button class="btn btn-primary dashboard-button" id="quickAssign" type="button">
+          <i class="fas fa-plus" aria-hidden="true"></i><span>Quick Assign</span>
+        </button>
+        {% endif %}
+        <button class="btn btn-outline dashboard-button" type="button" onclick="exportData()" aria-label="Export dashboard data">
+          <i class="fas fa-download" aria-hidden="true"></i><span>Export</span>
         </button>
       </div>
-    </div>
+    </header>
 
-    <!-- Stats Cards with Django Data -->
-    <div class="cards-grid">
-      <!-- Total Laptops Card -->
-      <div class="card">
-        <div class="card-header">
-          <div>
-            <div class="card-title">Total Laptops</div>
-            <div class="card-value" id="totalLaptops">{{ total_laptops }}</div>
+    <section aria-label="Primary inventory statistics">
+      <div class="primary-metrics">
+        <article class="metric-card">
+          <div class="metric-card-main"><div><p class="metric-label">Total Laptops</p><p class="metric-value" id="totalLaptops">{{ total_laptops }}</p></div>
+            <span class="metric-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="13" rx="2"></rect><path d="M2 21h20"></path><path d="M9 17v4M15 17v4"></path></svg></span>
           </div>
-          <span class="card-icon card-icon-1" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="13" rx="2"></rect><path d="M2 21h20"></path><path d="M9 17v4M15 17v4"></path></svg>
-          </span>
-        </div>
-      </div>
-
-      <!-- Available Now Card -->
-      <div class="card">
-        <div class="card-header">
-          <div>
-            <div class="card-title">Available Now</div>
-            <div class="card-value" id="availableLaptops">
-              {{ available_laptops }}
-            </div>
+        </article>
+        <article class="metric-card metric-card--available">
+          <div class="metric-card-main"><div><p class="metric-label">Available Now</p><p class="metric-value" id="availableLaptops">{{ available_laptops }}</p></div>
+            <span class="metric-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="m8 12 2.5 2.5L16 9"></path></svg></span>
           </div>
-          <span class="card-icon card-icon-2" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="m8 12 2.5 2.5L16 9"></path></svg>
-          </span>
-        </div>
-      </div>
-
-      <!-- Under Repair Card -->
-      <div class="card">
-        <div class="card-header">
-          <div>
-            <div class="card-title">Under Repair</div>
-            <div class="card-value" id="repairLaptops">
-              {{ repair_laptops }}
-            </div>
+        </article>
+        <article class="metric-card">
+          <div class="metric-card-main"><div><p class="metric-label">Active Rentals</p><p class="metric-value" id="activeRentals">{{ assigned_laptops }}</p></div>
+            <span class="metric-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m17 1 4 4-4 4"></path><path d="M3 11V9a4 4 0 0 1 4-4h14"></path><path d="m7 23-4-4 4-4"></path><path d="M21 13v2a4 4 0 0 1-4 4H3"></path></svg></span>
           </div>
-          <span class="card-icon card-icon-3" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4 4 0 0 0-5 5L3 18l3 3 6.7-6.7a4 4 0 0 0 5-5l-2.4 2.4-3-3 2.4-2.4Z"></path></svg>
-          </span>
-        </div>
-      </div>
-
-      <!-- Active Rentals Card -->
-      <div class="card">
-        <div class="card-header">
-          <div>
-            <div class="card-title">Active Rentals</div>
-            <div class="card-value" id="activeRentals">
-              {{ assigned_laptops }}
-            </div>
+        </article>
+        <article class="metric-card metric-card--overdue">
+          <div class="metric-card-main"><div><p class="metric-label">Overdue</p><p class="metric-value" id="overdueRentals">{{ overdue_assignments }}</p></div>
+            <span class="metric-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 2.9 1.8 17a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 2.9a2 2 0 0 0-3.4 0Z"></path><path d="M12 9v4M12 17h.01"></path></svg></span>
           </div>
-          <span class="card-icon card-icon-4" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m17 1 4 4-4 4"></path><path d="M3 11V9a4 4 0 0 1 4-4h14"></path><path d="m7 23-4-4 4-4"></path><path d="M21 13v2a4 4 0 0 1-4 4H3"></path></svg>
-          </span>
-        </div>
+        </article>
       </div>
-
-      <!-- Overdue Card -->
-      <div class="card">
-        <div class="card-header">
-          <div>
-            <div class="card-title">Overdue</div>
-            <div class="card-value" id="overdueRentals">
-              {{ overdue_assignments }}
-            </div>
+      <div class="secondary-metrics" aria-label="Additional inventory statistics">
+        <article class="metric-card metric-card--repair">
+          <div class="metric-card-main"><div class="metric-content"><p class="metric-label">Under Repair</p><p class="metric-value" id="repairLaptops">{{ repair_laptops }}</p></div>
+            <span class="metric-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4 4 0 0 0-5 5L3 18l3 3 6.7-6.7a4 4 0 0 0 5-5l-2.4 2.4-3-3 2.4-2.4Z"></path></svg></span>
           </div>
-          <span class="card-icon card-icon-5" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 2.9 1.8 17a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 2.9a2 2 0 0 0-3.4 0Z"></path><path d="M12 9v4M12 17h.01"></path></svg>
-          </span>
-        </div>
-      </div>
-
-      <!-- Students Registered Card -->
-      <div class="card">
-        <div class="card-header">
-          <div>
-            <div class="card-title">Students Registered</div>
-            <div class="card-value" id="totalStudents">
-              {{ total_students }}
-            </div>
+        </article>
+        <article class="metric-card">
+          <div class="metric-card-main"><div class="metric-content"><p class="metric-label">Students Registered</p><p class="metric-value" id="totalStudents">{{ total_students }}</p></div>
+            <span class="metric-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m2 9 10-5 10 5-10 5L2 9Z"></path><path d="M6 11.5V16c3 2.5 9 2.5 12 0v-4.5M22 9v6"></path></svg></span>
           </div>
-          <span class="card-icon card-icon-6" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m2 9 10-5 10 5-10 5L2 9Z"></path><path d="M6 11.5V16c3 2.5 9 2.5 12 0v-4.5M22 9v6"></path></svg>
-          </span>
-        </div>
+        </article>
       </div>
-    </div>
+    </section>
 
-    <!-- Recent Activity / Assignments -->
-    <div class="data-section">
-      <div class="section-header">
-        <h2 class="section-title">Recent Assignments</h2>
-        <div class="section-actions">
-          <button
-            class="btn btn-outline btn-sm"
-            id="refreshAssignments"
-            onclick="location.reload()"
-          >
-            <i class="fas fa-sync-alt"></i> Refresh
-          </button>
-        </div>
+    <section class="dashboard-panel" aria-labelledby="recent-assignments-heading">
+      <div class="panel-header">
+        <div><h2 class="panel-title" id="recent-assignments-heading">Recent Assignments</h2><p class="panel-description">The 10 most recently issued laptops.</p></div>
+        <button class="btn btn-outline btn-sm dashboard-button" id="refreshAssignments" type="button" aria-label="Refresh recent assignments">
+          <i class="fas fa-rotate" aria-hidden="true"></i><span>Refresh</span>
+        </button>
       </div>
-
       <div class="table-responsive">
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>Student/Staff</th>
-              <th>Laptop</th>
-              <th>Assigned Date</th>
-              <th>Due Date</th>
-              <th>Status</th>
-            </tr>
-          </thead>
+        <table class="assignments-table">
+          <thead><tr><th scope="col">Student/Staff</th><th scope="col">Laptop</th><th scope="col">Assigned Date</th><th scope="col">Due Date</th><th scope="col">Status</th></tr></thead>
           <tbody id="recentAssignmentsTable">
             {% for assignment in recent_assignments %}
             <tr>
+              <td><span class="person-name">{{ assignment.person.name }}</span><span class="person-type">{{ assignment.person.person_type }}</span></td>
+              <td><span class="serial-number">{{ assignment.laptop.SerialNumber }}</span></td>
+              <td><time datetime="{{ assignment.issue_date|date:'Y-m-d' }}">{{ assignment.issue_date|date:"M d, Y" }}</time></td>
+              <td><time datetime="{{ assignment.expected_return_date|date:'Y-m-d' }}">{{ assignment.expected_return_date|date:"M d, Y" }}</time></td>
               <td>
-                <div class="user-info">
-                  <span class="user-name">{{ assignment.person.name }}</span>
-                  <small class="user-type"
-                    >{{ assignment.person.person_type }}</small
-                  >
-                </div>
-              </td>
-              <td>{{ assignment.laptop.SerialNumber }}</td>
-              <td>{{ assignment.issue_date|date:"M d, Y" }}</td>
-              <td>{{ assignment.expected_return_date|date:"M d, Y" }}</td>
-              <td>
-                {% if assignment.assignment_status == 'Issued' %}
-                <span class="badge badge-primary">Issued</span>
-                {% elif assignment.assignment_status == 'Returned' %}
-                <span class="badge badge-success">Returned</span>
-                {% elif assignment.assignment_status == 'Overdue' %}
-                <span class="badge badge-danger">Overdue</span>
-                {% endif %}
+                {% if assignment.assignment_status == 'Issued' %}<span class="status-badge status-badge--issued">Issued</span>
+                {% elif assignment.assignment_status == 'Returned' %}<span class="status-badge status-badge--returned">Returned</span>
+                {% elif assignment.assignment_status == 'Overdue' %}<span class="status-badge status-badge--overdue">Overdue</span>
+                {% else %}<span class="status-badge status-badge--neutral">{{ assignment.assignment_status }}</span>{% endif %}
               </td>
             </tr>
             {% empty %}
-            <tr>
-              <td colspan="5" class="text-center text-muted">
-                No recent assignments found.
-              </td>
-            </tr>
+            <tr class="empty-row"><td colspan="5">
+              <span class="empty-icon" aria-hidden="true"><i class="fas fa-laptop-file"></i></span>
+              <p class="empty-title">No assignments yet</p><p class="empty-copy">Recent laptop assignments will appear here.</p>
+            </td></tr>
             {% endfor %}
           </tbody>
         </table>
       </div>
-    </div>
+    </section>
 
-    <!-- Charts Section -->
-    <div class="row">
-      <div class="col-md-6">
-        <div class="card">
-          <div class="card-header">
-            <h3 class="section-title">Laptop Status Distribution</h3>
-          </div>
-          <div class="card-body">
-            <canvas id="laptopStatusChart" width="400" height="200"></canvas>
-          </div>
+    <section class="analytics-grid" aria-label="Dashboard analytics">
+      <article class="dashboard-panel" aria-labelledby="laptop-status-heading">
+        <div class="panel-header"><div><h2 class="panel-title" id="laptop-status-heading">Laptop Status Distribution</h2><p class="panel-description">Current inventory by operational status.</p></div></div>
+        <div class="chart-body">
+          <div class="chart-state" id="laptopStatusLoading" aria-live="polite"><div class="chart-loading-content"><span class="loading-spinner" aria-hidden="true"></span><span>Loading chart…</span></div></div>
+          <div class="chart-state" id="laptopStatusEmpty" hidden><div class="chart-empty-content"><span class="chart-empty-icon" aria-hidden="true"><i class="fas fa-chart-pie"></i></span><p class="empty-title">No inventory data yet</p><p class="empty-copy">Laptop status data will appear when inventory is added.</p></div></div>
+          <canvas class="chart-canvas" id="laptopStatusChart" role="img" aria-label="Doughnut chart showing laptop status distribution"></canvas>
         </div>
-      </div>
-      <div class="col-md-6">
-        <div class="card">
-          <div class="card-header">
-            <h3 class="section-title">Assignments by Month</h3>
-          </div>
-          <div class="card-body">
-            <canvas id="assignmentsChart" width="400" height="200"></canvas>
-          </div>
+      </article>
+      <article class="dashboard-panel" aria-labelledby="monthly-assignments-heading">
+        <div class="panel-header"><div><h2 class="panel-title" id="monthly-assignments-heading">Assignments by Month</h2><p class="panel-description">Assignment activity across the last six months.</p></div></div>
+        <div class="chart-body">
+          <div class="chart-state" id="assignmentsLoading" aria-live="polite"><div class="chart-loading-content"><span class="loading-spinner" aria-hidden="true"></span><span>Loading chart…</span></div></div>
+          <div class="chart-state" id="assignmentsEmpty" hidden><div class="chart-empty-content"><span class="chart-empty-icon" aria-hidden="true"><i class="fas fa-chart-line"></i></span><p class="empty-title">No assignment activity</p><p class="empty-copy">Monthly activity will appear after laptops are assigned.</p></div></div>
+          <canvas class="chart-canvas" id="assignmentsChart" role="img" aria-label="Line chart showing assignments by month"></canvas>
         </div>
-      </div>
+      </article>
+    </section>
+  </section>
+
+  <div class="dashboard-modal-overlay" id="quickAssignModal" aria-hidden="true">
+    <div class="dashboard-modal" role="dialog" aria-modal="true" aria-labelledby="quickAssignModalTitle" tabindex="-1">
+      <div class="modal-header"><h2 class="modal-title" id="quickAssignModalTitle">Quick Assign Laptop</h2><button class="modal-close-button" id="closeQuickAssignModal" type="button" aria-label="Close quick assign dialog">&times;</button></div>
+      <form method="post" action="{% url 'rental_system:quick_assign' %}" id="quickAssignForm">
+        {% csrf_token %}
+        <div class="modal-body">
+          <div class="form-group"><label class="form-label" for="quickAssignPerson">Person</label><select name="person" class="form-control" id="quickAssignPerson" required><option value="">Select Person</option>{% for person in persons %}<option value="{{ person.id }}">{{ person.name }} ({{ person.person_type }})</option>{% endfor %}</select></div>
+          <div class="form-group"><label class="form-label" for="quickAssignLaptop">Laptop</label><select name="laptop" class="form-control" id="quickAssignLaptop" required><option value="">Select Laptop</option>{% for laptop in available_laptops_list %}<option value="{{ laptop.id }}">{{ laptop.brand }} {{ laptop.name }} ({{ laptop.SerialNumber }})</option>{% endfor %}</select></div>
+          <div class="form-row">
+            <div class="form-group"><label class="form-label" for="quickAssignIssueDate">Issue Date</label><input type="date" name="issue_date" class="form-control" id="quickAssignIssueDate" value="{% now 'Y-m-d' %}" required /></div>
+            <div class="form-group"><label class="form-label" for="quickAssignReturnDate">Expected Return Date</label><input type="date" name="expected_return_date" class="form-control" id="quickAssignReturnDate" required /></div>
+          </div>
+          <div class="form-group"><label class="form-label" for="quickAssignAcademicYear">Academic Year</label><input type="text" name="academic_year" class="form-control" id="quickAssignAcademicYear" placeholder="2026-2027" required /></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline dashboard-button" id="cancelQuickAssign">Cancel</button>
+          <button type="submit" class="btn btn-primary dashboard-button" id="submitQuickAssign"><span class="submit-label">Assign Laptop</span></button>
+        </div>
+      </form>
     </div>
   </div>
+  {{ monthly_labels|json_script:"dashboard-monthly-labels" }}
+  {{ monthly_counts|json_script:"dashboard-monthly-counts" }}
 </div>
 
-<!-- Quick Assign Modal -->
-<div class="modal-overlay" id="quickAssignModal">
-  <div class="modal">
-    <div class="modal-header">
-      <h2 class="modal-title">Quick Assign Laptop</h2>
-      <button class="modal-close" id="closeQuickAssignModal">&times;</button>
-    </div>
-    <form method="post" action="{% url 'rental_system:quick_assign' %}">
-      {% csrf_token %}
-      <div class="modal-body">
-        <div class="form-group">
-          <label class="form-label">Person</label>
-          <select name="person" class="form-control" required>
-            <option value="">Select Person</option>
-            {% for person in persons %}
-            <option value="{{ person.id }}">
-              {{ person.name }} ({{ person.person_type }})
-            </option>
-            {% endfor %}
-          </select>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Laptop</label>
-          <select name="laptop" class="form-control" required>
-            <option value="">Select Laptop</option>
-            {% for laptop in available_laptops_list %}
-            <option value="{{ laptop.id }}">
-              {{ laptop.brand }} {{ laptop.name }} ({{ laptop.SerialNumber }})
-            </option>
-            {% endfor %}
-          </select>
-        </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label class="form-label">Issue Date</label>
-            <input
-              type="date"
-              name="issue_date"
-              class="form-control"
-              value="{% now 'Y-m-d' %}"
-              required
-            />
-          </div>
-          <div class="form-group">
-            <label class="form-label">Expected Return Date</label>
-            <input
-              type="date"
-              name="expected_return_date"
-              class="form-control"
-              required
-            />
-          </div>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Academic Year</label>
-          <input
-            type="text"
-            name="academic_year"
-            class="form-control"
-            placeholder="2024-2025"
-            required
-          />
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-outline" id="cancelQuickAssign">
-          Cancel
-        </button>
-        <button type="submit" class="btn btn-primary">Assign Laptop</button>
-      </div>
-    </form>
-  </div>
-</div>
-
-<!-- Chart.js for Charts -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-  // Laptop Status Chart
-  const ctx1 = document.getElementById('laptopStatusChart').getContext('2d');
-  new Chart(ctx1, {
-      type: 'doughnut',
-      data: {
-          labels: ['Available', 'Assigned', 'In Repair', 'Damage'],
-          datasets: [{
-              data: [{{ available_laptops }}, {{ assigned_laptops }}, {{ repair_laptops }}, {{ damage_laptops }}],
-              backgroundColor: ['#20855b', '#142b58', '#bd7a00', '#c2352a']
-          }]
-      },
-      options: {
-          responsive: true,
-          plugins: {
-              legend: {
-                  position: 'bottom',
-                  labels: {
-                      color: '#526174'
-                  }
-              }
-          }
+  (function () {
+    "use strict";
+    window.exportData = function () {
+      showNotification("Export functionality will be available in a future update.", { title: "Export not available", type: "info" });
+    };
+    const colors = { primary:"#142B57", success:"#16A34A", warning:"#D97706", danger:"#DC2626", muted:"#64748B", grid:"#E2E8F0" };
+    function showChartState(canvasId, loadingId, emptyId, hasData) {
+      const canvas = document.getElementById(canvasId);
+      document.getElementById(loadingId).hidden = true;
+      if (hasData) canvas.classList.add("is-ready");
+      else document.getElementById(emptyId).hidden = false;
+    }
+    function showChartError(loadingId, emptyId) {
+      document.getElementById(loadingId).hidden = true;
+      const empty = document.getElementById(emptyId);
+      empty.querySelector(".empty-title").textContent = "Chart unavailable";
+      empty.querySelector(".empty-copy").textContent = "Refresh the page to try loading this chart again.";
+      empty.hidden = false;
+    }
+    function initializeCharts() {
+      const inventoryData = [Number("{{ available_laptops|default:0 }}"),Number("{{ assigned_laptops|default:0 }}"),Number("{{ repair_laptops|default:0 }}"),Number("{{ damage_laptops|default:0 }}")];
+      const monthlyLabels = JSON.parse(document.getElementById("dashboard-monthly-labels").textContent);
+      const monthlyData = JSON.parse(document.getElementById("dashboard-monthly-counts").textContent).map(Number);
+      const hasInventory = inventoryData.some(function (value) { return value > 0; });
+      const hasMonthly = monthlyData.some(function (value) { return value > 0; });
+      if (typeof Chart === "undefined") {
+        showChartError("laptopStatusLoading","laptopStatusEmpty");
+        showChartError("assignmentsLoading","assignmentsEmpty");
+        return;
       }
-  });
-
-  // Assignments Chart (Monthly)
-  const ctx2 = document.getElementById('assignmentsChart').getContext('2d');
-  new Chart(ctx2, {
-      type: 'line',
-      data: {
-          labels: [{% for month in monthly_labels %}'{{ month }}',{% endfor %}],
-          datasets: [{
-              label: 'Assignments',
-              data: [{% for count in monthly_counts %}{{ count }},{% endfor %}],
-              borderColor: '#142b58',
-              backgroundColor: 'rgba(20, 43, 88, 0.08)',
-              tension: 0.25,
-              fill: true
-          }]
-      },
-      options: {
-          responsive: true,
-          plugins: {
-              legend: {
-                  display: false
-              }
-          },
-          scales: {
-              y: {
-                  grid: {
-                      color: '#e6eaf0'
-                  },
-                  ticks: {
-                      color: '#526174'
-                  }
-              },
-              x: {
-                  grid: {
-                      display: false
-                  },
-                  ticks: {
-                      color: '#526174'
-                  }
-              }
-          }
+      if (hasInventory) {
+        showChartState("laptopStatusChart","laptopStatusLoading","laptopStatusEmpty",true);
+        new Chart(document.getElementById("laptopStatusChart"), {
+          type:"doughnut",
+          data:{labels:["Available","Assigned","In Repair","Damage"],datasets:[{data:inventoryData,backgroundColor:[colors.success,colors.primary,colors.warning,colors.danger],borderColor:"#FFF",borderWidth:3,hoverOffset:4}]},
+          options:{responsive:true,maintainAspectRatio:false,cutout:"68%",plugins:{
+            legend:{position:"bottom",labels:{boxWidth:9,boxHeight:9,color:colors.muted,padding:16,usePointStyle:true,font:{family:"Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",size:11,weight:"600"}}},
+            tooltip:{backgroundColor:"#0F172A",titleColor:"#FFF",bodyColor:"#E2E8F0",padding:11,cornerRadius:8,callbacks:{label:function(context){return " "+context.label+": "+context.parsed;}}}
+          }}
+        });
+      } else showChartState("laptopStatusChart","laptopStatusLoading","laptopStatusEmpty",false);
+      if (hasMonthly) {
+        showChartState("assignmentsChart","assignmentsLoading","assignmentsEmpty",true);
+        new Chart(document.getElementById("assignmentsChart"), {
+          type:"line",
+          data:{labels:monthlyLabels,datasets:[{label:"Assignments",data:monthlyData,borderColor:colors.primary,backgroundColor:"rgba(20,43,87,.08)",borderWidth:2,pointBackgroundColor:"#FFF",pointBorderColor:colors.primary,pointBorderWidth:2,pointRadius:3,pointHoverRadius:5,tension:.32,fill:true}]},
+          options:{responsive:true,maintainAspectRatio:false,interaction:{intersect:false,mode:"index"},plugins:{
+            legend:{display:false},tooltip:{backgroundColor:"#0F172A",titleColor:"#FFF",bodyColor:"#E2E8F0",padding:11,cornerRadius:8,displayColors:false}
+          },scales:{
+            y:{beginAtZero:true,grid:{color:colors.grid,drawBorder:false},border:{display:false},ticks:{color:colors.muted,precision:0,padding:8,font:{size:11}}},
+            x:{grid:{display:false},border:{color:colors.grid},ticks:{color:colors.muted,maxRotation:0,padding:8,font:{size:11}}}
+          }}
+        });
+      } else showChartState("assignmentsChart","assignmentsLoading","assignmentsEmpty",false);
+    }
+    document.addEventListener("DOMContentLoaded", function () {
+      const openButton = document.getElementById("quickAssign");
+      const overlay = document.getElementById("quickAssignModal");
+      const modal = overlay.querySelector("[role='dialog']");
+      const closeButton = document.getElementById("closeQuickAssignModal");
+      const cancelButton = document.getElementById("cancelQuickAssign");
+      const form = document.getElementById("quickAssignForm");
+      const refreshButton = document.getElementById("refreshAssignments");
+      let lastFocus = null;
+      function openModal() {
+        lastFocus = document.activeElement; overlay.classList.add("active");
+        overlay.setAttribute("aria-hidden","false"); document.body.style.overflow = "hidden"; modal.focus();
       }
-  });
-
-  // Export function
-  function exportData() {
-      showNotification('Export functionality will be available in a future update.', { title: 'Export not available', type: 'info' });
-  }
-
-  // Modal handling
-  document.addEventListener('DOMContentLoaded', function() {
-      const quickAssignBtn = document.getElementById('quickAssign');
-      const modal = document.getElementById('quickAssignModal');
-      const closeBtn = document.getElementById('closeQuickAssignModal');
-      const cancelBtn = document.getElementById('cancelQuickAssign');
-
-      if (quickAssignBtn) {
-          quickAssignBtn.addEventListener('click', function() {
-              modal.classList.add('active');
-          });
-      }
-
       function closeModal() {
-          modal.classList.remove('active');
+        overlay.classList.remove("active"); overlay.setAttribute("aria-hidden","true");
+        document.body.style.overflow = ""; if (lastFocus) lastFocus.focus();
       }
-
-      if (closeBtn) closeBtn.addEventListener('click', closeModal);
-      if (cancelBtn) cancelBtn.addEventListener('click', closeModal);
-
-      // Close when clicking outside
-      modal.addEventListener('click', function(e) {
-          if (e.target === modal) {
-              closeModal();
-          }
+      if (openButton) openButton.addEventListener("click",openModal);
+      closeButton.addEventListener("click",closeModal);
+      cancelButton.addEventListener("click",closeModal);
+      overlay.addEventListener("click",function(event){if(event.target===overlay)closeModal();});
+      document.addEventListener("keydown",function(event){
+        if (!overlay.classList.contains("active")) return;
+        if (event.key === "Escape") { closeModal(); return; }
+        if (event.key === "Tab") {
+          const focusable = modal.querySelectorAll('button:not([disabled]),select:not([disabled]),input:not([disabled])');
+          const first = focusable[0];
+          const last = focusable[focusable.length - 1];
+          if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+          else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+        }
       });
-  });
+      refreshButton.addEventListener("click",function(){
+        refreshButton.disabled = true;
+        refreshButton.querySelector("span").textContent = "Refreshing…";
+        window.location.reload();
+      });
+      form.addEventListener("submit",function(){
+        const submit = document.getElementById("submitQuickAssign");
+        submit.disabled = true; submit.querySelector(".submit-label").textContent = "Assigning…";
+      });
+      initializeCharts();
+    });
+  })();
 </script>
 {% endblock %}
