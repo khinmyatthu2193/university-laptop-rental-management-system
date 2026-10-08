@@ -30,6 +30,8 @@ urlpatterns = [
     path("inventory/create/", permission_required('inventory.manage')(views.laptop_create), name="laptop_create"),
     path("inventory/<int:pk>/edit/", permission_required('inventory.manage')(views.laptop_update), name="laptop_update"),
     path('assignments/', permission_required('assignments.view', 'assignments.manage')(views.assigned_laptop_list), name='assigned_laptop_list'),
+    path('assignments/legacy-import/', permission_required('assignments.manage')(require_POST(views.import_legacy_assignments_excel)), name='import_legacy_assignments'),
+    path('assignments/legacy-template/', permission_required('assignments.manage')(views.legacy_assignments_template), name='legacy_assignments_template'),
     path('returns/', permission_required('returns.view', 'returns.manage')(views.return_laptop_list), name='return_laptop_list'),
     path('issues/', permission_required('issues.view', 'issues.manage')(views.issue_list), name='issue_list'),
     #End of SAL's Code

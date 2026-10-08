@@ -9,6 +9,11 @@
     </div>
 
     <div class="d-flex align-items-center gap-2 flex-wrap">
+      {% if access.assignments.manage %}
+      <button type="button" class="btn btn-legacy-import" id="openLegacyImport">
+        <i class="fas fa-file-arrow-up me-2" aria-hidden="true"></i>Import Old Data
+      </button>
+      {% endif %}
       <span class="count-chip available-chip">
         <i class="fas fa-laptop me-2"></i>Available: {{ available_count }}
       </span>
@@ -240,6 +245,59 @@
       No assignments found for this filter.
     </div>
   </div>
+
+  {% if access.assignments.manage %}
+  <div class="legacy-import-overlay" id="legacyImportOverlay" aria-hidden="true">
+    <div class="legacy-import-dialog" role="dialog" aria-modal="true" aria-labelledby="legacyImportTitle" tabindex="-1">
+      <div class="legacy-import-header">
+        <div>
+          <h3 id="legacyImportTitle">Import Old Assignment Data</h3>
+          <p>Upload the old combined register using the approved English columns.</p>
+        </div>
+        <button type="button" class="legacy-import-close" id="closeLegacyImport" aria-label="Close legacy import dialog">&times;</button>
+      </div>
+
+      <form method="post" action="{% url 'rental_system:import_legacy_assignments' %}" enctype="multipart/form-data" id="legacyImportForm">
+        {% csrf_token %}
+        <div class="legacy-import-body">
+          <div class="legacy-callout" role="note">
+            <i class="fas fa-circle-info" aria-hidden="true"></i>
+            <div>
+              <strong>Register laptop inventory first.</strong>
+              <span>Students without a Device Number are imported as Not Requested. Missing students are created from their MIIT roll number, while Device Number must match an existing laptop. Return Date is treated as the actual return date.</span>
+            </div>
+          </div>
+
+          <div class="legacy-columns" aria-label="Required Excel columns">
+            <span>No.</span><span>Name</span><span>Roll Number</span><span>Device Number</span><span>Issue Date</span><span>Return Date</span><span>Sign</span><span>Phone No</span><span>Remark</span>
+          </div>
+
+          <div class="legacy-template-row">
+            <div>
+              <strong>Use the exact column names</strong>
+              <p>Extra columns are allowed, but these nine columns must be present.</p>
+            </div>
+            <a class="btn btn-outline legacy-template-button" href="{% url 'rental_system:legacy_assignments_template' %}">
+              <i class="fas fa-download me-2" aria-hidden="true"></i>Download Template
+            </a>
+          </div>
+
+          <div class="legacy-file-field">
+            <label for="legacyAssignmentFile">Excel file</label>
+            <input type="file" class="form-control" id="legacyAssignmentFile" name="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required />
+            <small>Only .xlsx files up to 5 MB are accepted. If any row is invalid, nothing will be imported.</small>
+          </div>
+        </div>
+        <div class="legacy-import-footer">
+          <button type="button" class="btn btn-outline" id="cancelLegacyImport">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="submitLegacyImport">
+            <i class="fas fa-upload me-2" aria-hidden="true"></i><span>Validate and Import</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+  {% endif %}
 </div>
 
 <script>
@@ -298,6 +356,46 @@ document.addEventListener('DOMContentLoaded', function () {
     sortSelect.addEventListener('change', applyFiltersAndSort);
 
     applyFiltersAndSort();
+
+    const openLegacyImport = document.getElementById('openLegacyImport');
+    const legacyOverlay = document.getElementById('legacyImportOverlay');
+    if (openLegacyImport && legacyOverlay) {
+        const legacyDialog = legacyOverlay.querySelector('[role="dialog"]');
+        const closeLegacyImport = document.getElementById('closeLegacyImport');
+        const cancelLegacyImport = document.getElementById('cancelLegacyImport');
+        const legacyForm = document.getElementById('legacyImportForm');
+        let previousFocus = null;
+
+        function openLegacyDialog() {
+            previousFocus = document.activeElement;
+            legacyOverlay.classList.add('active');
+            legacyOverlay.setAttribute('aria-hidden', 'false');
+            document.body.style.overflow = 'hidden';
+            legacyDialog.focus();
+        }
+
+        function closeLegacyDialog() {
+            legacyOverlay.classList.remove('active');
+            legacyOverlay.setAttribute('aria-hidden', 'true');
+            document.body.style.overflow = '';
+            if (previousFocus) previousFocus.focus();
+        }
+
+        openLegacyImport.addEventListener('click', openLegacyDialog);
+        closeLegacyImport.addEventListener('click', closeLegacyDialog);
+        cancelLegacyImport.addEventListener('click', closeLegacyDialog);
+        legacyOverlay.addEventListener('click', event => {
+            if (event.target === legacyOverlay) closeLegacyDialog();
+        });
+        document.addEventListener('keydown', event => {
+            if (event.key === 'Escape' && legacyOverlay.classList.contains('active')) closeLegacyDialog();
+        });
+        legacyForm.addEventListener('submit', () => {
+            const submitButton = document.getElementById('submitLegacyImport');
+            submitButton.disabled = true;
+            submitButton.querySelector('span').textContent = 'Importing…';
+        });
+    }
 });
 </script>
 
@@ -338,6 +436,95 @@ document.addEventListener('DOMContentLoaded', function () {
     color: #362e90;
     border: 1px solid rgba(91, 114, 181, 0.18);
 }
+
+.btn-legacy-import {
+    min-height: 42px;
+    padding: 9px 16px;
+    color: #fff;
+    background: #142b57;
+    border: 1px solid #142b57;
+    border-radius: 9px;
+    font-weight: 700;
+}
+
+.btn-legacy-import:hover,
+.btn-legacy-import:focus {
+    color: #fff;
+    background: #0d2045;
+    border-color: #0d2045;
+}
+
+.legacy-import-overlay {
+    position: fixed;
+    z-index: 2100;
+    inset: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: rgba(15, 23, 42, 0.58);
+}
+
+.legacy-import-overlay.active { display: flex; }
+
+.legacy-import-dialog {
+    width: min(720px, 100%);
+    max-height: calc(100dvh - 40px);
+    overflow-y: auto;
+    color: #0f172a;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    box-shadow: 0 24px 70px rgba(15, 23, 42, 0.26);
+}
+
+.legacy-import-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 20px;
+    padding: 20px 22px;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.legacy-import-header h3 { margin: 0 0 4px; font-size: 1.15rem; font-weight: 800; }
+.legacy-import-header p { margin: 0; color: #64748b; font-size: .86rem; }
+.legacy-import-close {
+    width: 36px; height: 36px; flex: 0 0 36px; padding: 0; color: #64748b;
+    background: transparent; border: 0; border-radius: 8px; font-size: 1.4rem;
+}
+.legacy-import-close:hover { color: #0f172a; background: #f1f5f9; }
+.legacy-import-body { display: grid; gap: 20px; padding: 22px; }
+.legacy-callout {
+    display: flex; gap: 12px; padding: 14px; color: #1e3a5f;
+    background: #eff6ff; border: 1px solid #dbeafe; border-radius: 10px;
+}
+.legacy-callout i { margin-top: 3px; }
+.legacy-callout strong,.legacy-callout span { display: block; }
+.legacy-callout span { margin-top: 3px; color: #475569; font-size: .8rem; line-height: 1.5; }
+.legacy-columns { display: flex; flex-wrap: wrap; gap: 7px; }
+.legacy-columns span {
+    padding: 6px 9px; color: #334155; background: #f8fafc;
+    border: 1px solid #e2e8f0; border-radius: 7px; font-family: monospace; font-size: .76rem;
+}
+.legacy-template-row {
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    padding: 14px 0; border-top: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0;
+}
+.legacy-template-row strong { font-size: .88rem; }
+.legacy-template-row p { margin: 3px 0 0; color: #64748b; font-size: .78rem; }
+.legacy-template-button { flex: 0 0 auto; border-radius: 8px; }
+.legacy-file-field label { display: block; margin-bottom: 7px; font-size: .84rem; font-weight: 700; }
+.legacy-file-field .form-control { border-color: #cbd5e1; border-radius: 8px; }
+.legacy-file-field small { display: block; margin-top: 7px; color: #64748b; font-size: .76rem; }
+.legacy-import-footer {
+    display: flex; justify-content: flex-end; gap: 10px; padding: 17px 22px;
+    background: #f8fafc; border-top: 1px solid #e2e8f0;
+}
+.legacy-import-footer .btn { border-radius: 8px; }
+.legacy-import-dialog:focus { outline: none; }
+.legacy-import-close:focus-visible,.legacy-import-dialog .btn:focus-visible,
+.legacy-import-dialog .form-control:focus-visible { outline: 3px solid rgba(20,43,87,.2); outline-offset: 2px; }
 
 .assign-card {
     border: none;
@@ -449,6 +636,13 @@ document.addEventListener('DOMContentLoaded', function () {
     .assignment-control {
         min-width: 135px;
     }
+
+    .legacy-import-overlay { padding: 10px; }
+    .legacy-import-dialog { max-height: calc(100dvh - 20px); }
+    .legacy-template-row { align-items: stretch; flex-direction: column; }
+    .legacy-template-button { width: 100%; }
+    .legacy-import-footer { flex-direction: column-reverse; }
+    .legacy-import-footer .btn { width: 100%; }
 }
 </style>
 

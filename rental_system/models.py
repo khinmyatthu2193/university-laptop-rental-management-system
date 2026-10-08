@@ -104,6 +104,17 @@ class Student(models.Model):
     major = models.CharField(max_length=10)
     batch_year = models.IntegerField()
 
+    RENTAL_STATUS_CHOICES = [
+        ('Not Requested', 'Not Requested'),
+        ('Assigned', 'Assigned'),
+        ('Returned', 'Returned'),
+    ]
+    rental_status = models.CharField(
+        max_length=20,
+        choices=RENTAL_STATUS_CHOICES,
+        default='Not Requested',
+    )
+
     laptop = models.ForeignKey('Laptop', on_delete=models.SET_NULL, null=True, blank=True)
 
     def __str__(self):
@@ -241,6 +252,8 @@ class LaptopAssignment(models.Model):
 
     academic_year = models.CharField(max_length=20)
     assignment_status = models.CharField(max_length=20, choices=STATUS_CHOICES)
+    legacy_sign = models.CharField(max_length=255, blank=True, default='')
+    remark = models.TextField(blank=True, default='')
 
     class Meta:
         db_table = 'laptop_assignment'

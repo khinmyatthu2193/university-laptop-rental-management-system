@@ -1,11 +1,14 @@
 from datetime import date, timedelta
+from io import BytesIO
 
 from django.contrib.auth.models import User
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import IntegrityError, transaction
 from django.test import TestCase
 from django.urls import reverse
+from openpyxl import Workbook, load_workbook
 
-from .models import Laptop, LaptopAssignment, ManagementStaff, Person, SystemPreference
+from .models import Laptop, LaptopAssignment, ManagementStaff, Person, Student, SystemPreference
 
 
 class PhaseOneSecurityTests(TestCase):
@@ -242,3 +245,179 @@ class AssignmentIntegrityTests(TestCase):
         today = date.today()
         with self.assertRaises(IntegrityError), transaction.atomic():
             self.assignment(expected_return_date=today - timedelta(days=1))
+
+
+class LegacyAssignmentImportTests(TestCase):
+    password = 'A-strong-local-password-2026'
+
+    def setUp(self):
+        user = User.objects.create_user(
+            username='legacy_importer',
+            email='legacy_importer@miit.edu.mm',
+            password=self.password,
+        )
+        ManagementStaff.objects.create(
+            auth_user=user,
+            name='Legacy Importer',
+            username='legacy_importer',
+            outlook_mail='legacy_importer@miit.edu.mm',
+            position='IT Support',
+            department='ITSM',
+            role='Admin',
+            permissions=['assignments.view', 'assignments.manage'],
+        )
+        self.client.force_login(user)
+        self.student = Student.objects.create(
+            student_id='2026-MIIT-CSE-001',
+            full_name='Test Student',
+            email='2026-miit-cse-001@miit.edu.mm',
+            phone='',
+            major='CSE',
+            batch_year=2026,
+        )
+        self.laptop = Laptop.objects.create(
+            SerialNumber='DEVICE-001',
+            name='Test Model',
+            brand='Test Brand',
+            processor_gen='Test CPU',
+            ram=8,
+            storage='256GB SSD',
+            for_whom='Student',
+        )
+
+    def workbook_upload(self, rows):
+        workbook = Workbook()
+        worksheet = workbook.active
+        worksheet.append([
+            'No.', 'Name', 'Roll Number', 'Device Number', 'Issue Date',
+            'Return Date', 'Sign', 'Phone No', 'Remark',
+        ])
+        for row in rows:
+            worksheet.append(row)
+        output = BytesIO()
+        workbook.save(output)
+        return SimpleUploadedFile(
+            'legacy_assignments.xlsx',
+            output.getvalue(),
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        )
+
+    def test_downloaded_template_uses_english_headers(self):
+        response = self.client.get(reverse('rental_system:legacy_assignments_template'))
+        self.assertEqual(response.status_code, 200)
+        workbook = load_workbook(BytesIO(response.content), read_only=True)
+        headers = [cell.value for cell in next(workbook.active.iter_rows(max_row=1))]
+        self.assertEqual(headers, [
+            'No.', 'Name', 'Roll Number', 'Device Number', 'Issue Date',
+            'Return Date', 'Sign', 'Phone No', 'Remark',
+        ])
+
+    def test_imports_returned_legacy_assignment_and_metadata(self):
+        issue_date = date(2025, 1, 10)
+        return_date = date(2025, 2, 10)
+        upload = self.workbook_upload([[
+            1, self.student.full_name, self.student.student_id,
+            self.laptop.SerialNumber, issue_date, return_date,
+            'Signed', '09123456789', 'Returned in good condition',
+        ]])
+        response = self.client.post(
+            reverse('rental_system:import_legacy_assignments'),
+            {'file': upload},
+        )
+        self.assertRedirects(response, reverse('rental_system:assigned_laptop_list'))
+        assignment = LaptopAssignment.objects.get()
+        self.assertEqual(assignment.assignment_status, 'Returned')
+        self.assertEqual(assignment.actual_return_date, return_date)
+        self.assertEqual(assignment.legacy_sign, 'Signed')
+        self.assertEqual(assignment.remark, 'Returned in good condition')
+        self.student.refresh_from_db()
+        self.assertIsNone(self.student.laptop_id)
+        self.assertEqual(self.student.phone, '09123456789')
+        self.assertEqual(self.student.rental_status, 'Returned')
+
+    def test_imports_blank_return_date_as_current_assignment(self):
+        today = date.today()
+        upload = self.workbook_upload([[
+            1, self.student.full_name, self.student.student_id,
+            self.laptop.SerialNumber, today, None, '', '', '',
+        ]])
+        response = self.client.post(
+            reverse('rental_system:import_legacy_assignments'),
+            {'file': upload},
+        )
+        self.assertRedirects(response, reverse('rental_system:assigned_laptop_list'))
+        assignment = LaptopAssignment.objects.get()
+        self.assertEqual(assignment.assignment_status, 'Issued')
+        self.assertIsNone(assignment.actual_return_date)
+        self.student.refresh_from_db()
+        self.laptop.refresh_from_db()
+        self.assertEqual(self.student.laptop_id, self.laptop.id)
+        self.assertEqual(self.laptop.status, 'Assigned')
+        self.assertEqual(self.student.rental_status, 'Assigned')
+
+    def test_imports_student_without_device_as_not_requested(self):
+        upload = self.workbook_upload([[
+            1, 'New Student', '2025-MIIT-CSE-099',
+            None, None, None, '', '09111111111', '',
+        ]])
+        response = self.client.post(
+            reverse('rental_system:import_legacy_assignments'),
+            {'file': upload},
+        )
+        self.assertRedirects(response, reverse('rental_system:assigned_laptop_list'))
+        student = Student.objects.get(student_id='2025-MIIT-CSE-099')
+        self.assertEqual(student.full_name, 'New Student')
+        self.assertEqual(student.major, 'CSE')
+        self.assertEqual(student.batch_year, 2025)
+        self.assertEqual(student.email, '2025-miit-cse-099@miit.edu.mm')
+        self.assertEqual(student.rental_status, 'Not Requested')
+        self.assertIsNone(student.laptop_id)
+        self.assertFalse(LaptopAssignment.objects.exists())
+
+    def test_invalid_workbook_imports_nothing(self):
+        upload = self.workbook_upload([[
+            1, 'Unknown Student', 'UNKNOWN-ROLL', self.laptop.SerialNumber,
+            date.today(), None, '', '', '',
+        ]])
+        response = self.client.post(
+            reverse('rental_system:import_legacy_assignments'),
+            {'file': upload},
+        )
+        self.assertRedirects(response, reverse('rental_system:assigned_laptop_list'))
+        self.assertFalse(LaptopAssignment.objects.exists())
+
+    def test_finds_legacy_table_on_later_sheet_and_parses_excel_date(self):
+        workbook = Workbook()
+        unrelated = workbook.active
+        unrelated.title = 'Other Data'
+        unrelated.append(['Roll No.', "Student's Name"])
+        unrelated.append(['2025_0001', 'Different List'])
+        worksheet = workbook.create_sheet('ECE Roll Number')
+        worksheet.append(['Legacy title'])
+        worksheet.append(['Another title'])
+        worksheet.append([])
+        worksheet.append([
+            'စဉ်', 'Extra Roll', 'အမည်', 'ပထမနှစ်သင်တန်း\nခုံအမှတ်',
+            'စက်နံပါတ်', 'Issue Date', 'Return Date', 'Sign', 'Phone No', 'Remark',
+        ])
+        worksheet.append([
+            1, '25_0001', self.student.full_name, self.student.student_id,
+            self.laptop.SerialNumber, 45669, None, '', '09123456789', '',
+        ])
+        output = BytesIO()
+        workbook.save(output)
+        upload = SimpleUploadedFile(
+            'multi_sheet_legacy.xlsx',
+            output.getvalue(),
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        )
+
+        response = self.client.post(
+            reverse('rental_system:import_legacy_assignments'),
+            {'file': upload},
+        )
+
+        self.assertRedirects(response, reverse('rental_system:assigned_laptop_list'))
+        assignment = LaptopAssignment.objects.get()
+        self.assertEqual(assignment.issue_date, date(2025, 1, 12))
+        self.assertEqual(assignment.assignment_status, 'Overdue')

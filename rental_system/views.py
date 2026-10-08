@@ -19,7 +19,10 @@ from django.db import transaction
 import pandas as pd
 import hashlib
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
+from io import BytesIO
+from openpyxl import Workbook
+from openpyxl.utils.datetime import from_excel
 
 from .access import ALL_PERMISSION_CODES, PERMISSION_GROUPS, landing_page_for
 
@@ -98,6 +101,9 @@ def sync_laptop_assignment_statuses():
     )
 
     assigned_ids = active_assignment_ids | linked_student_ids | linked_staff_ids
+    Student.objects.filter(laptop__isnull=False).exclude(rental_status='Assigned').update(
+        rental_status='Assigned'
+    )
     if not assigned_ids:
         return
 
@@ -341,6 +347,11 @@ def quick_assign(request):
                 )
                 laptop.status = 'Assigned'
                 laptop.save(update_fields=['status'])
+                if person.person_type == 'Student':
+                    Student.objects.filter(email=person.outlook_mail).update(
+                        laptop=laptop,
+                        rental_status='Assigned',
+                    )
         except (IntegrityError, ValueError):
             messages.error(request, 'That person or laptop already has an active assignment.')
             return redirect('rental_system:home')
@@ -867,6 +878,403 @@ def import_laptops_excel(request):
     return redirect('rental_system:inventory_list')
 
 
+LEGACY_ASSIGNMENT_COLUMNS = [
+    'No.', 'Name', 'Roll Number', 'Device Number', 'Issue Date',
+    'Return Date', 'Sign', 'Phone No', 'Remark',
+]
+
+
+def _excel_text(value):
+    """Return a stable string for ordinary text and Excel numeric identifiers."""
+    if value is None or pd.isna(value):
+        return ''
+    if isinstance(value, float) and value.is_integer():
+        return str(int(value))
+    return str(value).strip()
+
+
+def _excel_date(value):
+    if value is None or pd.isna(value) or _excel_text(value) == '':
+        return None
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        try:
+            converted = from_excel(value)
+            return converted.date() if hasattr(converted, 'date') else converted
+        except (TypeError, ValueError, OverflowError):
+            return None
+    parsed = pd.to_datetime(value, errors='coerce')
+    if pd.isna(parsed):
+        return None
+    return parsed.date()
+
+
+def _legacy_header_name(value):
+    normalized = ' '.join(_excel_text(value).split()).casefold()
+    aliases = {
+        'no.': 'No.',
+        'name': 'Name',
+        'roll number': 'Roll Number',
+        'device number': 'Device Number',
+        'issue date': 'Issue Date',
+        'return date': 'Return Date',
+        'sign': 'Sign',
+        'phone no': 'Phone No',
+        'remark': 'Remark',
+        'စဉ်': 'No.',
+        'အမည်': 'Name',
+        'ပထမနှစ်သင်တန်း ခုံအမှတ်': 'Roll Number',
+        'စက်နံပါတ်': 'Device Number',
+    }
+    return aliases.get(normalized)
+
+
+def _legacy_workbook_rows(upload):
+    """Find assignment tables in any sheet and normalize legacy header aliases."""
+    sheets = pd.read_excel(upload, sheet_name=None, header=None, dtype=object)
+    imported_rows = []
+    matched_sheets = []
+
+    for sheet_name, raw_sheet in sheets.items():
+        header_index = None
+        column_map = None
+        for index in range(min(len(raw_sheet.index), 20)):
+            candidate_map = {}
+            for column_index, value in enumerate(raw_sheet.iloc[index].tolist()):
+                canonical = _legacy_header_name(value)
+                if canonical and canonical not in candidate_map:
+                    candidate_map[canonical] = column_index
+            if all(column in candidate_map for column in LEGACY_ASSIGNMENT_COLUMNS):
+                header_index = index
+                column_map = candidate_map
+                break
+
+        if header_index is None:
+            continue
+
+        matched_sheets.append(sheet_name)
+        for dataframe_index in range(header_index + 1, len(raw_sheet.index)):
+            values = raw_sheet.iloc[dataframe_index]
+            imported_rows.append((
+                sheet_name,
+                dataframe_index + 1,
+                {column: values.iloc[column_map[column]] for column in LEGACY_ASSIGNMENT_COLUMNS},
+            ))
+
+    return imported_rows, matched_sheets
+
+
+def _legacy_student_identity(roll_number):
+    match = re.fullmatch(r'(\d{4})-MIIT-(CSE|ECE)-(\d+)', roll_number, flags=re.IGNORECASE)
+    if not match:
+        return None
+    return {
+        'email': f'{roll_number.lower()}@miit.edu.mm',
+        'major': match.group(2).upper(),
+        'batch_year': int(match.group(1)),
+    }
+
+
+def legacy_assignments_template(request):
+    """Download the English-column workbook accepted by the legacy importer."""
+    workbook = Workbook()
+    worksheet = workbook.active
+    worksheet.title = 'Legacy Assignments'
+    worksheet.append(LEGACY_ASSIGNMENT_COLUMNS)
+    worksheet.freeze_panes = 'A2'
+    widths = [9, 28, 22, 20, 16, 16, 18, 18, 36]
+    for index, width in enumerate(widths, start=1):
+        worksheet.column_dimensions[chr(64 + index)].width = width
+    for cell in worksheet[1]:
+        cell.font = cell.font.copy(bold=True)
+
+    output = BytesIO()
+    workbook.save(output)
+    response = HttpResponse(
+        output.getvalue(),
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    )
+    response['Content-Disposition'] = 'attachment; filename="legacy_assignment_template.xlsx"'
+    return response
+
+
+@transaction.atomic
+def import_legacy_assignments_excel(request):
+    """Import the old combined register without denormalizing current records."""
+    if request.method != 'POST':
+        return redirect('rental_system:assigned_laptop_list')
+
+    upload = request.FILES.get('file')
+    upload_error = validate_excel_upload(upload)
+    if upload_error:
+        messages.error(request, upload_error)
+        return redirect('rental_system:assigned_laptop_list')
+
+    try:
+        workbook_rows, matched_sheets = _legacy_workbook_rows(upload)
+    except Exception:
+        messages.error(request, 'Could not read the legacy Excel file.')
+        return redirect('rental_system:assigned_laptop_list')
+
+    if not matched_sheets:
+        messages.error(
+            request,
+            'No assignment sheet was found. Use the English columns from the downloadable template.',
+        )
+        return redirect('rental_system:assigned_laptop_list')
+
+    preference = SystemPreference.objects.order_by('pk').first()
+    try:
+        default_rental_days = int((preference.values if preference else {}).get('default_rental_days', 14))
+    except (TypeError, ValueError):
+        default_rental_days = 14
+    default_rental_days = min(max(default_rental_days, 1), 365)
+
+    planned_students = {}
+    planned_assignments = []
+    errors = []
+    warnings = []
+    workbook_keys = set()
+    active_students = set()
+    active_laptops = set()
+
+    for sheet_name, excel_row, row in workbook_rows:
+        row_location = f'{sheet_name}, row {excel_row}'
+        name = _excel_text(row.get('Name'))
+        roll_number = _excel_text(row.get('Roll Number'))
+        device_number = _excel_text(row.get('Device Number'))
+        issue_date = _excel_date(row.get('Issue Date'))
+        raw_issue_date = _excel_text(row.get('Issue Date'))
+        return_date = _excel_date(row.get('Return Date'))
+        raw_return_date = _excel_text(row.get('Return Date'))
+        sign = _excel_text(row.get('Sign'))
+        phone_number = _excel_text(row.get('Phone No'))
+        remark = _excel_text(row.get('Remark'))
+
+        if not any([name, roll_number, device_number, raw_issue_date, raw_return_date, phone_number, remark]):
+            continue
+
+        row_errors = []
+        if not name:
+            row_errors.append('Name is required')
+        if not roll_number:
+            row_errors.append('Roll Number is required')
+        has_assignment = bool(device_number or raw_issue_date or raw_return_date)
+        if has_assignment and not device_number:
+            row_errors.append('Device Number is required when assignment dates are present')
+        if has_assignment and not raw_issue_date:
+            row_errors.append('Issue Date is required when Device Number is present')
+        elif raw_issue_date and issue_date is None:
+            row_errors.append('Issue Date is invalid')
+        if raw_return_date and return_date is None:
+            row_errors.append('Return Date is invalid')
+        if issue_date and return_date and return_date < issue_date:
+            row_errors.append('Return Date cannot be before Issue Date')
+
+        identity = _legacy_student_identity(roll_number) if roll_number else None
+        if roll_number and identity is None:
+            row_errors.append(f'Roll Number {roll_number} does not match the MIIT roll-number format')
+
+        student = Student.objects.filter(student_id__iexact=roll_number).first() if identity else None
+        laptop = Laptop.objects.filter(SerialNumber__iexact=device_number).first() if device_number else None
+        if has_assignment and device_number and laptop is None:
+            row_errors.append(f'Device Number {device_number} is not registered')
+        if laptop and laptop.for_whom != 'Student':
+            row_errors.append(f'Device Number {device_number} is designated for staff')
+
+        if row_errors:
+            errors.append(f'{row_location}: ' + '; '.join(row_errors))
+            continue
+
+        roll_key = roll_number.casefold()
+        previous = planned_students.get(roll_key)
+        if previous and previous['name'].casefold() != name.casefold():
+            errors.append(f'{row_location}: {roll_number} appears with two different names')
+            continue
+        planned_students[roll_key] = {
+            'existing': student,
+            'roll_number': roll_number,
+            'name': name,
+            'phone_number': phone_number or (previous or {}).get('phone_number', ''),
+            'identity': identity,
+        }
+
+        if not has_assignment:
+            continue
+
+        person = None
+        if student:
+            person = Person.objects.filter(person_type='Student', outlook_mail=student.email).first()
+        student_key = student.pk if student else roll_key
+        key = (student_key, laptop.pk, issue_date)
+        if key in workbook_keys:
+            errors.append(f'{row_location}: duplicate assignment in this workbook')
+            continue
+        workbook_keys.add(key)
+
+        existing_assignment = None
+        if person:
+            existing_assignment = LaptopAssignment.objects.filter(
+                person=person,
+                laptop=laptop,
+                issue_date=issue_date,
+            ).first()
+
+        if return_date is None:
+            if student_key in active_students:
+                errors.append(f'{row_location}: {roll_number} has more than one active row in this workbook')
+                continue
+            if laptop.pk in active_laptops:
+                errors.append(f'{row_location}: {device_number} has more than one active row in this workbook')
+                continue
+            active_students.add(student_key)
+            active_laptops.add(laptop.pk)
+
+            if student and student.laptop_id and student.laptop_id != laptop.pk:
+                errors.append(f'{row_location}: {roll_number} already has another laptop assigned')
+                continue
+            linked_students = Student.objects.filter(laptop=laptop)
+            if student:
+                linked_students = linked_students.exclude(pk=student.pk)
+            if linked_students.exists() or Staff.objects.filter(laptop=laptop).exists():
+                errors.append(f'{row_location}: {device_number} is already linked to another person')
+                continue
+
+            active_conflicts = LaptopAssignment.objects.filter(
+                Q(laptop=laptop) | (Q(person=person) if person else Q(pk__in=[])),
+                assignment_status__in=ACTIVE_ASSIGNMENT_STATUSES,
+                actual_return_date__isnull=True,
+            )
+            if existing_assignment:
+                active_conflicts = active_conflicts.exclude(pk=existing_assignment.pk)
+            if active_conflicts.exists():
+                errors.append(f'{row_location}: student or device already has an active assignment')
+                continue
+
+        if student and student.full_name.strip().casefold() != name.casefold():
+            warnings.append(f'{row_location}: kept registered name “{student.full_name}” instead of “{name}”.')
+
+        planned_assignments.append({
+            'roll_key': roll_key,
+            'laptop': laptop,
+            'issue_date': issue_date,
+            'return_date': return_date,
+            'sign': sign,
+            'phone_number': phone_number,
+            'remark': remark,
+        })
+
+    if errors:
+        transaction.set_rollback(True)
+        preview = ' | '.join(errors[:8])
+        suffix = f' | Plus {len(errors) - 8} more error(s).' if len(errors) > 8 else ''
+        messages.error(request, f'Nothing was imported. Fix the workbook errors: {preview}{suffix}')
+        return redirect('rental_system:assigned_laptop_list')
+    if not planned_students:
+        messages.error(request, 'The workbook does not contain any student rows.')
+        return redirect('rental_system:assigned_laptop_list')
+
+    created_student_count = 0
+    student_map = {}
+    for roll_key, item in planned_students.items():
+        student = item['existing']
+        if student is None:
+            student = Student.objects.create(
+                student_id=item['roll_number'],
+                full_name=item['name'],
+                email=item['identity']['email'],
+                phone=item['phone_number'][:20],
+                major=item['identity']['major'],
+                batch_year=item['identity']['batch_year'],
+                rental_status='Not Requested',
+            )
+            created_student_count += 1
+        elif item['phone_number'] and not student.phone:
+            student.phone = item['phone_number'][:20]
+            student.save(update_fields=['phone'])
+        student_map[roll_key] = student
+
+    created_count = 0
+    updated_count = 0
+    today = timezone.now().date()
+    imported_statuses = {roll_key: 'Not Requested' for roll_key in planned_students}
+    for item in planned_assignments:
+        student = student_map[item['roll_key']]
+        laptop = item['laptop']
+        person = get_or_create_student_person(student)
+        if item['phone_number'] and person.phone_number in ['', '-']:
+            person.phone_number = item['phone_number'][:15]
+            person.save(update_fields=['phone_number'])
+
+        actual_return_date = item['return_date']
+        expected_return_date = actual_return_date or (item['issue_date'] + timedelta(days=default_rental_days))
+        if actual_return_date:
+            status = 'Returned'
+            if imported_statuses[item['roll_key']] != 'Assigned':
+                imported_statuses[item['roll_key']] = 'Returned'
+        elif expected_return_date < today:
+            status = 'Overdue'
+            imported_statuses[item['roll_key']] = 'Assigned'
+        else:
+            status = 'Issued'
+            imported_statuses[item['roll_key']] = 'Assigned'
+
+        assignment, created = LaptopAssignment.objects.update_or_create(
+            person=person,
+            laptop=laptop,
+            issue_date=item['issue_date'],
+            defaults={
+                'expected_return_date': expected_return_date,
+                'actual_return_date': actual_return_date,
+                'academic_year': str(item['issue_date'].year),
+                'assignment_status': status,
+                'legacy_sign': item['sign'],
+                'remark': item['remark'],
+            },
+        )
+        if created:
+            created_count += 1
+        else:
+            updated_count += 1
+
+        if not actual_return_date:
+            if student.laptop_id != laptop.pk:
+                student.laptop = laptop
+                student.save(update_fields=['laptop'])
+            if laptop.status != 'Assigned':
+                laptop.status = 'Assigned'
+                laptop.save(update_fields=['status'])
+
+    for roll_key, rental_status in imported_statuses.items():
+        student = student_map[roll_key]
+        if student.laptop_id:
+            rental_status = 'Assigned'
+        if student.rental_status != rental_status:
+            student.rental_status = rental_status
+            student.save(update_fields=['rental_status'])
+
+    AuditLog.objects.create(
+        staff=request.management_staff,
+        action_type='Insert',
+        target_table='laptop_assignment',
+        record_id='legacy-import',
+        new_value=(
+            f'Students created: {created_student_count}; '
+            f'Assignments created: {created_count}; Assignments updated: {updated_count}'
+        ),
+        description='Imported legacy assignment workbook',
+    )
+    messages.success(
+        request,
+        f'Legacy import complete: {created_student_count} students created, '
+        f'{created_count} assignments created, and {updated_count} assignments updated.',
+    )
+    for warning in warnings[:3]:
+        messages.warning(request, warning)
+    if len(warnings) > 3:
+        messages.warning(request, f'{len(warnings) - 3} additional name mismatch(es) used the registered student names.')
+    return redirect('rental_system:assigned_laptop_list')
+
+
 @transaction.atomic
 def assigned_laptop_list(request):
     refresh_overdue_assignments()
@@ -914,7 +1322,8 @@ def assigned_laptop_list(request):
                     messages.error(request, f'Laptop {laptop.SerialNumber} is designated for {laptop.for_whom.lower()}s only.')
                 else:
                     student.laptop = laptop
-                    student.save()
+                    student.rental_status = 'Assigned'
+                    student.save(update_fields=['laptop', 'rental_status'])
                     get_or_create_student_assignment(student, laptop)
                     laptop.status = 'Assigned'
                     laptop.save()
@@ -1163,7 +1572,8 @@ def return_laptop_list(request):
             laptop = student.laptop
             if return_type == 'complete':
                 student.laptop = None
-                student.save()
+                student.rental_status = 'Returned'
+                student.save(update_fields=['laptop', 'rental_status'])
             laptop = apply_return_updates(
                 laptop,
                 active_assignment,
