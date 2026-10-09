@@ -250,47 +250,46 @@
   <div class="legacy-import-overlay" id="legacyImportOverlay" aria-hidden="true">
     <div class="legacy-import-dialog" role="dialog" aria-modal="true" aria-labelledby="legacyImportTitle" tabindex="-1">
       <div class="legacy-import-header">
-        <div>
-          <h3 id="legacyImportTitle">Import Old Assignment Data</h3>
-          <p>Upload the old combined register using the approved English columns.</p>
-        </div>
-        <button type="button" class="legacy-import-close" id="closeLegacyImport" aria-label="Close legacy import dialog">&times;</button>
+        <h3 id="legacyImportTitle">
+          <i class="fas fa-file-excel me-2" aria-hidden="true"></i>Import Old Assignment Data
+        </h3>
+        <button type="button" class="legacy-import-close" id="closeLegacyImport" aria-label="Close legacy import dialog">
+          <i class="fas fa-times" aria-hidden="true"></i>
+        </button>
       </div>
 
       <form method="post" action="{% url 'rental_system:import_legacy_assignments' %}" enctype="multipart/form-data" id="legacyImportForm">
         {% csrf_token %}
         <div class="legacy-import-body">
-          <div class="legacy-callout" role="note">
-            <i class="fas fa-circle-info" aria-hidden="true"></i>
-            <div>
-              <strong>Register laptop inventory first.</strong>
-              <span>Students without a Device Number are imported as Not Requested. Missing students are created from their MIIT roll number, while Device Number must match an existing laptop. Return Date is treated as the actual return date.</span>
+          <div class="legacy-form-inner">
+            <h4 class="legacy-form-title">Upload Excel File</h4>
+
+            <div class="legacy-file-field">
+              <label for="legacyAssignmentFile">Choose .xlsx file</label>
+              <input type="file" class="form-control legacy-soft-input" id="legacyAssignmentFile" name="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required />
+              <small>Only .xlsx files up to 5 MB are accepted.</small>
             </div>
-          </div>
 
-          <div class="legacy-columns" aria-label="Required Excel columns">
-            <span>No.</span><span>Name</span><span>Roll Number</span><span>Device Number</span><span>Issue Date</span><span>Return Date</span><span>Sign</span><span>Phone No</span><span>Remark</span>
-          </div>
-
-          <div class="legacy-template-row">
-            <div>
-              <strong>Use the exact column names</strong>
-              <p>Extra columns are allowed, but these nine columns must be present.</p>
+            <div class="alert alert-info legacy-required-columns" role="note">
+              <strong>Required columns:</strong><br>
+              <code>No., Name, Roll Number, Device Number, Issue Date, Return Date, Sign, Phone No, Remark</code>
             </div>
-            <a class="btn btn-outline legacy-template-button" href="{% url 'rental_system:legacy_assignments_template' %}">
-              <i class="fas fa-download me-2" aria-hidden="true"></i>Download Template
-            </a>
-          </div>
 
-          <div class="legacy-file-field">
-            <label for="legacyAssignmentFile">Excel file</label>
-            <input type="file" class="form-control" id="legacyAssignmentFile" name="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required />
-            <small>Only .xlsx files up to 5 MB are accepted. If any row is invalid, nothing will be imported.</small>
+            {% include "partials/import_template_row.html" with column_count="nine" template_url="rental_system:legacy_assignments_template" %}
+
+            <div class="legacy-callout" role="note">
+              <i class="fas fa-circle-info" aria-hidden="true"></i>
+              <div>
+                <strong>Register laptop inventory first.</strong>
+                <span>Device Number must match an existing laptop. Missing students are created from their MIIT roll number, and students without a Device Number are imported as Not Requested. Return Date is treated as the actual return date.</span>
+                <span class="legacy-validation-note">The workbook is validated as one unit. If any row is invalid, nothing will be imported.</span>
+              </div>
+            </div>
           </div>
         </div>
         <div class="legacy-import-footer">
-          <button type="button" class="btn btn-outline" id="cancelLegacyImport">Cancel</button>
-          <button type="submit" class="btn btn-primary" id="submitLegacyImport">
+          <button type="button" class="btn btn-outline-secondary" id="cancelLegacyImport">Cancel</button>
+          <button type="submit" class="btn btn-success" id="submitLegacyImport">
             <i class="fas fa-upload me-2" aria-hidden="true"></i><span>Validate and Import</span>
           </button>
         </div>
@@ -468,60 +467,71 @@ document.addEventListener('DOMContentLoaded', function () {
 .legacy-import-overlay.active { display: flex; }
 
 .legacy-import-dialog {
-    width: min(720px, 100%);
+    width: min(860px, 96vw);
     max-height: calc(100dvh - 40px);
-    overflow-y: auto;
+    overflow: hidden;
     color: #0f172a;
-    background: #fff;
-    border: 1px solid #e2e8f0;
-    border-radius: 14px;
-    box-shadow: 0 24px 70px rgba(15, 23, 42, 0.26);
+    background: #f7fbff;
+    border-radius: 24px;
+    box-shadow: 0 24px 60px rgba(37, 45, 89, 0.28);
+    display: flex;
+    flex-direction: column;
 }
 
 .legacy-import-header {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     justify-content: space-between;
     gap: 20px;
-    padding: 20px 22px;
-    border-bottom: 1px solid #e2e8f0;
+    padding: 1.2rem 1.5rem;
+    color: var(--purple-dark);
+    background: linear-gradient(135deg, var(--light-blue), var(--sky-blue));
+    border-bottom: 2px solid var(--yellow-gold);
 }
 
-.legacy-import-header h3 { margin: 0 0 4px; font-size: 1.15rem; font-weight: 800; }
-.legacy-import-header p { margin: 0; color: #64748b; font-size: .86rem; }
+.legacy-import-header h3 { margin: 0; font-size: 1.35rem; font-weight: 800; }
 .legacy-import-close {
-    width: 36px; height: 36px; flex: 0 0 36px; padding: 0; color: #64748b;
-    background: transparent; border: 0; border-radius: 8px; font-size: 1.4rem;
+    width: 40px; height: 40px; flex: 0 0 40px; padding: 0; color: #52607a;
+    background: transparent; border: 0; border-radius: 10px; font-size: 1.6rem;
 }
-.legacy-import-close:hover { color: #0f172a; background: #f1f5f9; }
-.legacy-import-body { display: grid; gap: 20px; padding: 22px; }
+.legacy-import-close:hover { color: var(--purple-dark); background: rgba(255,255,255,.35); }
+.legacy-import-dialog form { display: flex; flex-direction: column; min-height: 0; }
+.legacy-import-body { min-height: 0; overflow-y: auto; padding: 1.5rem 1.75rem; }
+.legacy-form-inner { max-width: 760px; margin: 0 auto; }
+.legacy-form-title {
+    margin: 0 0 1.25rem;
+    padding-bottom: 10px;
+    color: var(--purple-dark);
+    border-bottom: 1px solid #dbe4f0;
+    font-size: 1.35rem;
+    font-weight: 800;
+}
+.legacy-file-field { margin-bottom: 1.25rem; }
+.legacy-file-field label { display: block; margin-bottom: 10px; font-size: 1rem; font-weight: 700; }
+.legacy-soft-input {
+    min-height: 56px;
+    padding: .6rem 1rem;
+    background: rgba(255,255,255,.92);
+    border: 1px solid #e0e7f1;
+    border-radius: 999px;
+}
+.legacy-file-field small { display: block; margin-top: 7px; color: #64748b; font-size: .8rem; }
+.legacy-required-columns { margin-bottom: 1.25rem; padding: 1.15rem; border-radius: 9px; }
+.legacy-required-columns strong { color: #075968; }
+.legacy-required-columns code { color: #ff176b; line-height: 1.8; white-space: normal; }
 .legacy-callout {
-    display: flex; gap: 12px; padding: 14px; color: #1e3a5f;
+    display: flex; gap: 12px; margin-top: 1.25rem; padding: 14px; color: #1e3a5f;
     background: #eff6ff; border: 1px solid #dbeafe; border-radius: 10px;
 }
 .legacy-callout i { margin-top: 3px; }
 .legacy-callout strong,.legacy-callout span { display: block; }
 .legacy-callout span { margin-top: 3px; color: #475569; font-size: .8rem; line-height: 1.5; }
-.legacy-columns { display: flex; flex-wrap: wrap; gap: 7px; }
-.legacy-columns span {
-    padding: 6px 9px; color: #334155; background: #f8fafc;
-    border: 1px solid #e2e8f0; border-radius: 7px; font-family: monospace; font-size: .76rem;
-}
-.legacy-template-row {
-    display: flex; align-items: center; justify-content: space-between; gap: 16px;
-    padding: 14px 0; border-top: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0;
-}
-.legacy-template-row strong { font-size: .88rem; }
-.legacy-template-row p { margin: 3px 0 0; color: #64748b; font-size: .78rem; }
-.legacy-template-button { flex: 0 0 auto; border-radius: 8px; }
-.legacy-file-field label { display: block; margin-bottom: 7px; font-size: .84rem; font-weight: 700; }
-.legacy-file-field .form-control { border-color: #cbd5e1; border-radius: 8px; }
-.legacy-file-field small { display: block; margin-top: 7px; color: #64748b; font-size: .76rem; }
+.legacy-validation-note { margin-top: 8px !important; font-weight: 700; }
 .legacy-import-footer {
-    display: flex; justify-content: flex-end; gap: 10px; padding: 17px 22px;
-    background: #f8fafc; border-top: 1px solid #e2e8f0;
+    display: flex; justify-content: flex-end; gap: 12px; padding: 1rem 1.5rem;
+    background: #f7fbff; border-top: 1px solid rgba(0,0,0,.08);
 }
-.legacy-import-footer .btn { border-radius: 8px; }
+.legacy-import-footer .btn { border-radius: 9px; font-weight: 700; }
 .legacy-import-dialog:focus { outline: none; }
 .legacy-import-close:focus-visible,.legacy-import-dialog .btn:focus-visible,
 .legacy-import-dialog .form-control:focus-visible { outline: 3px solid rgba(20,43,87,.2); outline-offset: 2px; }
@@ -638,9 +648,10 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     .legacy-import-overlay { padding: 10px; }
-    .legacy-import-dialog { max-height: calc(100dvh - 20px); }
-    .legacy-template-row { align-items: stretch; flex-direction: column; }
-    .legacy-template-button { width: 100%; }
+    .legacy-import-dialog { width: 100%; max-height: calc(100dvh - 20px); border-radius: 18px; }
+    .legacy-import-header { padding: 1rem; }
+    .legacy-import-header h3 { font-size: 1.1rem; }
+    .legacy-import-body { padding: 1rem; }
     .legacy-import-footer { flex-direction: column-reverse; }
     .legacy-import-footer .btn { width: 100%; }
 }
