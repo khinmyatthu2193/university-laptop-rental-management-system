@@ -247,6 +247,93 @@ class AssignmentIntegrityTests(TestCase):
             self.assignment(expected_return_date=today - timedelta(days=1))
 
 
+class LaptopImportTests(TestCase):
+    password = 'A-strong-local-password-2026'
+
+    def setUp(self):
+        user = User.objects.create_user(
+            username='inventory_importer',
+            email='inventory_importer@miit.edu.mm',
+            password=self.password,
+        )
+        ManagementStaff.objects.create(
+            auth_user=user,
+            name='Inventory Importer',
+            username='inventory_importer',
+            outlook_mail='inventory_importer@miit.edu.mm',
+            position='IT Support',
+            department='ITSM',
+            role='Admin',
+            permissions=['inventory.manage'],
+        )
+        self.client.force_login(user)
+
+    def workbook_upload(self, headers, rows):
+        workbook = Workbook()
+        worksheet = workbook.active
+        worksheet.append(headers)
+        for row in rows:
+            worksheet.append(row)
+        output = BytesIO()
+        workbook.save(output)
+        return SimpleUploadedFile(
+            'laptops.xlsx',
+            output.getvalue(),
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        )
+
+    def test_import_does_not_require_for_whom_or_status(self):
+        headers = [
+            'SerialNumber', 'name', 'brand', 'processor_gen',
+            'ram', 'storage', 'remark',
+        ]
+        upload = self.workbook_upload(headers, [[
+            'NEW-001', 'Latitude 5420', 'Dell', '11th Gen',
+            16, '512GB SSD', 'New stock',
+        ]])
+
+        response = self.client.post(
+            reverse('rental_system:import_laptops'),
+            {'file': upload},
+        )
+
+        self.assertRedirects(
+            response,
+            reverse('rental_system:inventory_list'),
+            fetch_redirect_response=False,
+        )
+        laptop = Laptop.objects.get(SerialNumber='NEW-001')
+        self.assertEqual(laptop.for_whom, 'Student')
+        self.assertEqual(laptop.status, 'Available')
+
+    def test_import_preserves_existing_for_whom_and_status(self):
+        laptop = Laptop.objects.create(
+            SerialNumber='EXISTING-001',
+            name='Old Model',
+            brand='Dell',
+            processor_gen='10th Gen',
+            ram=8,
+            storage='256GB SSD',
+            for_whom='Staff',
+            status='In Repair',
+        )
+        headers = [
+            'SerialNumber', 'name', 'brand', 'processor_gen', 'ram',
+            'storage', 'remark', 'for_whom', 'status',
+        ]
+        upload = self.workbook_upload(headers, [[
+            laptop.SerialNumber, 'Updated Model', 'Dell', '11th Gen', 16,
+            '512GB SSD', 'Updated stock', 'Student', 'Available',
+        ]])
+
+        self.client.post(reverse('rental_system:import_laptops'), {'file': upload})
+
+        laptop.refresh_from_db()
+        self.assertEqual(laptop.name, 'Updated Model')
+        self.assertEqual(laptop.for_whom, 'Staff')
+        self.assertEqual(laptop.status, 'In Repair')
+
+
 class LegacyAssignmentImportTests(TestCase):
     password = 'A-strong-local-password-2026'
 

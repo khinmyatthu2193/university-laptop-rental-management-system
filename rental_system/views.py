@@ -827,7 +827,7 @@ def import_laptops_excel(request):
 
     required_columns = [
         'SerialNumber', 'name', 'brand', 'processor_gen',
-        'ram', 'storage', 'for_whom', 'status', 'remark'
+        'ram', 'storage', 'remark'
     ]
 
     missing_columns = [col for col in required_columns if col not in df.columns]
@@ -845,33 +845,32 @@ def import_laptops_excel(request):
         if not serial_number:
             continue
 
-        for_whom = str(row.get('for_whom', '')).strip()
-        if for_whom not in ['Student', 'Staff']:
-            for_whom = 'Student'
-
-        status = str(row.get('status', '')).strip()
-        if status not in ['Available', 'Assigned', 'In Repair', 'Damage']:
-            status = 'Available'
-
         ram_value = row.get('ram', 0)
         try:
             ram_value = int(ram_value)
         except (TypeError, ValueError):
             ram_value = 0
 
-        Laptop.objects.update_or_create(
+        imported_values = {
+            'name': str(row.get('name', '')).strip(),
+            'brand': str(row.get('brand', '')).strip(),
+            'processor_gen': str(row.get('processor_gen', '')).strip(),
+            'ram': ram_value,
+            'storage': str(row.get('storage', '')).strip(),
+            'remark': str(row.get('remark', '')).strip(),
+        }
+        laptop, created = Laptop.objects.get_or_create(
             SerialNumber=serial_number,
             defaults={
-                'name': str(row.get('name', '')).strip(),
-                'brand': str(row.get('brand', '')).strip(),
-                'processor_gen': str(row.get('processor_gen', '')).strip(),
-                'ram': ram_value,
-                'storage': str(row.get('storage', '')).strip(),
-                'for_whom': for_whom,
-                'status': status,
-                'remark': str(row.get('remark', '')).strip(),
+                **imported_values,
+                'for_whom': 'Student',
+                'status': 'Available',
             }
         )
+        if not created:
+            for field, value in imported_values.items():
+                setattr(laptop, field, value)
+            laptop.save(update_fields=list(imported_values))
         imported_count += 1
 
     messages.success(request, f"{imported_count} laptops imported successfully!")
