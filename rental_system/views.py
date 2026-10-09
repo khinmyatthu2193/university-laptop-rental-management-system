@@ -28,6 +28,14 @@ from .access import ALL_PERMISSION_CODES, PERMISSION_GROUPS, landing_page_for
 
 ACTIVE_ASSIGNMENT_STATUSES = ('Issued', 'Overdue')
 MAX_IMPORT_BYTES = 5 * 1024 * 1024
+STUDENT_IMPORT_COLUMNS = ['student_id', 'full_name', 'email', 'phone', 'major', 'batch_year']
+LAPTOP_IMPORT_COLUMNS = [
+    'SerialNumber', 'name', 'brand', 'processor_gen', 'ram', 'storage', 'remark',
+]
+STAFF_IMPORT_COLUMNS = [
+    'name', 'outlook_mail', 'phone_number', 'staff_type',
+    'position', 'department', 'office_section', 'laptop',
+]
 
 
 def validate_excel_upload(upload):
@@ -38,6 +46,40 @@ def validate_excel_upload(upload):
     if upload.size > MAX_IMPORT_BYTES:
         return 'The Excel file must be 5 MB or smaller.'
     return None
+
+
+def _import_template_response(columns, sheet_title, filename):
+    """Return a header-only workbook that matches an importer's column contract."""
+    workbook = Workbook()
+    worksheet = workbook.active
+    worksheet.title = sheet_title
+    worksheet.append(columns)
+    worksheet.freeze_panes = 'A2'
+
+    for cell in worksheet[1]:
+        cell.font = cell.font.copy(bold=True)
+        worksheet.column_dimensions[cell.column_letter].width = max(16, len(str(cell.value)) + 4)
+
+    output = BytesIO()
+    workbook.save(output)
+    response = HttpResponse(
+        output.getvalue(),
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    )
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response
+
+
+def student_import_template(request):
+    return _import_template_response(STUDENT_IMPORT_COLUMNS, 'Students', 'student_import_template.xlsx')
+
+
+def laptop_import_template(request):
+    return _import_template_response(LAPTOP_IMPORT_COLUMNS, 'Laptops', 'laptop_import_template.xlsx')
+
+
+def staff_import_template(request):
+    return _import_template_response(STAFF_IMPORT_COLUMNS, 'Staff', 'staff_import_template.xlsx')
 
 
 def refresh_overdue_assignments(reference_date=None):
@@ -672,7 +714,7 @@ def import_students_excel(request):
         messages.error(request, "Could not read the Excel file.")
         return redirect('rental_system:student_list')
 
-    required_columns = ['student_id', 'full_name', 'email', 'phone', 'major', 'batch_year']
+    required_columns = STUDENT_IMPORT_COLUMNS
     missing_columns = [col for col in required_columns if col not in df.columns]
 
     if missing_columns:
@@ -825,10 +867,7 @@ def import_laptops_excel(request):
         messages.error(request, "Could not read the Excel file.")
         return redirect('rental_system:inventory_list')
 
-    required_columns = [
-        'SerialNumber', 'name', 'brand', 'processor_gen',
-        'ram', 'storage', 'remark'
-    ]
+    required_columns = LAPTOP_IMPORT_COLUMNS
 
     missing_columns = [col for col in required_columns if col not in df.columns]
     if missing_columns:
@@ -2313,16 +2352,7 @@ def import_staff_excel(request):
         messages.error(request, "Could not read the Excel file.")
         return redirect('rental_system:staff_list')
 
-    required_columns = [
-        'name',
-        'outlook_mail',
-        'phone_number',
-        'staff_type',
-        'position',
-        'department',
-        'office_section',
-        'laptop',
-    ]
+    required_columns = STAFF_IMPORT_COLUMNS
 
     missing_columns = [col for col in required_columns if col not in df.columns]
     if missing_columns:

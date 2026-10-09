@@ -254,13 +254,15 @@
               <input type="file" name="file" class="form-control soft-input" accept=".xlsx" required>
             </div>
 
-            <div class="alert alert-info mb-0">
+            <div class="alert alert-info mb-3">
               <strong>Required columns:</strong><br>
               <code>SerialNumber, name, brand, processor_gen, ram, storage, remark</code>
               <div class="mt-2 small">
                 New laptops are set to <strong>Student</strong> and <strong>Available</strong>. Existing audience and status values are preserved.
               </div>
             </div>
+
+            {% include "partials/import_template_row.html" with column_count="seven" template_url="rental_system:laptop_import_template" %}
           </div>
         </div>
       </div>

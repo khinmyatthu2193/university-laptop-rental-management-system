@@ -18,12 +18,14 @@ urlpatterns = [
     path("students/create/", permission_required('students.manage')(views.student_create), name="student_create"),
     path("students/<int:pk>/edit/", permission_required('students.manage')(views.student_update), name="student_update"),
     path('students/import/', permission_required('students.manage')(views.import_students_excel), name='import_students'),
+    path('students/import/template/', permission_required('students.manage')(views.student_import_template), name='student_import_template'),
     #End of KMT's Code
     
     path('staffs/', permission_required('staff_records.view', 'staff_records.manage')(views.staff_list), name='staff_list'),
     path('staffs/create/', permission_required('staff_records.manage')(views.staff_create), name='staff_create'),
     path('staffs/<int:pk>/edit/', permission_required('staff_records.manage')(views.staff_update), name='staff_update'),
     path("staff/import/", permission_required('staff_records.manage')(views.import_staff_excel), name="import_staff"),
+    path("staff/import/template/", permission_required('staff_records.manage')(views.staff_import_template), name="staff_import_template"),
     
     #SAL's Code for Laptop Management
     path("inventory/", permission_required('inventory.view', 'inventory.manage')(views.inventory_list), name="inventory_list"),
@@ -36,6 +38,7 @@ urlpatterns = [
     path('issues/', permission_required('issues.view', 'issues.manage')(views.issue_list), name='issue_list'),
     #End of SAL's Code
     path("inventory/import/", permission_required('inventory.manage')(views.import_laptops_excel), name="import_laptops"),
+    path("inventory/import/template/", permission_required('inventory.manage')(views.laptop_import_template), name="laptop_import_template"),
 
 # Quick Assign
     path('quick-assign/', permission_required('assignments.manage')(views.quick_assign), name='quick_assign'),

@@ -353,10 +353,12 @@
               <input type="file" name="file" class="form-control soft-input" accept=".xlsx" required>
             </div>
 
-            <div class="alert alert-info mb-0">
+            <div class="alert alert-info mb-3">
               <strong>Expected columns:</strong><br>
               <code>name, outlook_mail, phone_number, staff_type, position, department, office_section, laptop</code>
             </div>
+
+            {% include "partials/import_template_row.html" with column_count="eight" template_url="rental_system:staff_import_template" %}
           </div>
         </div>
       </div>

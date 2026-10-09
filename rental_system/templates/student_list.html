@@ -307,10 +307,12 @@
               <input type="file" name="file" class="form-control soft-input" accept=".xlsx" required>
             </div>
 
-            <div class="alert alert-info mb-0">
+            <div class="alert alert-info mb-3">
               <strong>Required columns:</strong><br>
               <code>student_id, full_name, email, phone, major, batch_year</code>
             </div>
+
+            {% include "partials/import_template_row.html" with column_count="six" template_url="rental_system:student_import_template" %}
           </div>
         </div>
       </div>

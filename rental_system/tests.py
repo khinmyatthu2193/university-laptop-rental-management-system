@@ -334,6 +334,51 @@ class LaptopImportTests(TestCase):
         self.assertEqual(laptop.status, 'In Repair')
 
 
+class ImportTemplateTests(TestCase):
+    def setUp(self):
+        user = User.objects.create_user(
+            username='template_downloader',
+            email='template_downloader@miit.edu.mm',
+            password='A-strong-local-password-2026',
+        )
+        ManagementStaff.objects.create(
+            auth_user=user,
+            name='Template Downloader',
+            username='template_downloader',
+            outlook_mail='template_downloader@miit.edu.mm',
+            position='IT Support',
+            department='ITSM',
+            role='Admin',
+            permissions=[
+                'students.manage', 'staff_records.manage', 'inventory.manage',
+            ],
+        )
+        self.client.force_login(user)
+
+    def test_import_templates_use_the_required_headers(self):
+        expected_templates = {
+            'student_import_template': [
+                'student_id', 'full_name', 'email', 'phone', 'major', 'batch_year',
+            ],
+            'staff_import_template': [
+                'name', 'outlook_mail', 'phone_number', 'staff_type',
+                'position', 'department', 'office_section', 'laptop',
+            ],
+            'laptop_import_template': [
+                'SerialNumber', 'name', 'brand', 'processor_gen',
+                'ram', 'storage', 'remark',
+            ],
+        }
+
+        for route_name, expected_headers in expected_templates.items():
+            with self.subTest(route_name=route_name):
+                response = self.client.get(reverse(f'rental_system:{route_name}'))
+                self.assertEqual(response.status_code, 200)
+                workbook = load_workbook(BytesIO(response.content), read_only=True)
+                headers = [cell.value for cell in next(workbook.active.iter_rows(max_row=1))]
+                self.assertEqual(headers, expected_headers)
+
+
 class LegacyAssignmentImportTests(TestCase):
     password = 'A-strong-local-password-2026'
 
