@@ -273,24 +273,7 @@
         </table>
     </div>
     
-    <!-- Pagination -->
-    {% if logs.paginator.num_pages > 1 %}
-    <div class="pagination" style="display: flex; justify-content: center; margin-top: 30px; gap: 5px;">
-        {% if logs.has_previous %}
-        <a href="?{% if request.GET %}{{ request.GET.urlencode }}&{% endif %}page=1" class="btn btn-sm btn-outline">&laquo; First</a>
-        <a href="?{% if request.GET %}{{ request.GET.urlencode }}&{% endif %}page={{ logs.previous_page_number }}" class="btn btn-sm btn-outline">Previous</a>
-        {% endif %}
-        
-        <span class="btn btn-sm btn-primary" style="cursor: default;">
-            Page {{ logs.number }} of {{ logs.paginator.num_pages }}
-        </span>
-        
-        {% if logs.has_next %}
-        <a href="?{% if request.GET %}{{ request.GET.urlencode }}&{% endif %}page={{ logs.next_page_number }}" class="btn btn-sm btn-outline">Next</a>
-        <a href="?{% if request.GET %}{{ request.GET.urlencode }}&{% endif %}page={{ logs.paginator.num_pages }}" class="btn btn-sm btn-outline">Last &raquo;</a>
-        {% endif %}
-    </div>
-    {% endif %}
+    {% include "partials/pagination.html" with pagination=logs_pagination label="Audit logs" %}
 </div>
 
 <script>

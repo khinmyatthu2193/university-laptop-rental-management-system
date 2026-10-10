@@ -58,7 +58,7 @@
   </form>
 
   <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-    <h4 class="mb-0 section-title">Devices <span class="text-muted">({{ laptops|length }})</span></h4>
+    <h4 class="mb-0 section-title">Devices <span class="text-muted">({{ total_laptops_filtered }})</span></h4>
 
     <form method="get" class="inventory-sort-form d-flex align-items-center gap-2">
       <input type="hidden" name="status" value="{{ status_active }}">
@@ -158,6 +158,7 @@
       </table>
     </div>
   </div>
+  {% include "partials/pagination.html" with pagination=laptops_pagination label="Inventory" %}
 </div>
 
 <div class="device-popup-overlay" id="addLaptopPopup">

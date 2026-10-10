@@ -5,6 +5,7 @@ from django.contrib.auth.models import User
 from django.contrib.auth.password_validation import validate_password
 from django.core.cache import cache
 from django.core.exceptions import ValidationError
+from django.core.paginator import Paginator
 from django.db import IntegrityError
 from .models import (
     Student, Laptop, ManagementStaff, Person, LaptopAssignment, AuditLog,
@@ -43,6 +44,23 @@ STAFF_TYPE_IMPORT_ALIASES = {
     'office': 'Office',
     'office staff': 'Office',
 }
+
+DEFAULT_PAGE_SIZE = 15
+
+
+def _paginate(request, object_list, page_param='page', per_page=DEFAULT_PAGE_SIZE):
+    """Paginate a dataset and retain every query parameter except its own page key."""
+    paginator = Paginator(object_list, per_page)
+    page_obj = paginator.get_page(request.GET.get(page_param))
+    query_params = request.GET.copy()
+    query_params.pop(page_param, None)
+    pagination = {
+        'page_obj': page_obj,
+        'page_param': page_param,
+        'query_string': query_params.urlencode(),
+        'page_range': list(paginator.get_elided_page_range(page_obj.number, on_each_side=1, on_ends=1)),
+    }
+    return page_obj, pagination
 
 
 def validate_excel_upload(upload):
@@ -565,10 +583,14 @@ def student_list(request):
     else:  # newest
         students = students.order_by("-id")
 
+    total_students = students.count()
+    students, students_pagination = _paginate(request, students)
     available_laptops_count = Laptop.objects.filter(status='Available').count()
 
     return render(request, "student_list.html", {
         "students": students,
+        "students_pagination": students_pagination,
+        "total_students": total_students,
         "form": StudentForm(),
         "majors": ["CSE", "ECE"],
         "years": range(2015, 2050),
@@ -819,11 +841,15 @@ def inventory_list(request):
                 'extra': staff.person.outlook_mail,
             }
 
+    total_laptops_filtered = laptops.count()
+    laptops, laptops_pagination = _paginate(request, laptops)
     status_list = ["All", "Available", "Assigned", "In Repair", "Damage", "Replace"]
     available_laptops_count = Laptop.objects.filter(status='Available').count()
 
     return render(request, "inventory_list.html", {
         "laptops": laptops,
+        "laptops_pagination": laptops_pagination,
+        "total_laptops_filtered": total_laptops_filtered,
         "form": LaptopForm(),
         "status_active": status or "All",
         "status_list": status_list,
@@ -1404,14 +1430,24 @@ def assigned_laptop_list(request):
                 messages.success(request, f'{laptop.SerialNumber} assigned to staff {staff.person.name}.')
             return redirect('rental_system:assigned_laptop_list')
 
+    assigned_count = assigned_students.count() + assigned_staff_assignments.count()
+    assigned_students, assigned_students_pagination = _paginate(
+        request, assigned_students, page_param='student_page'
+    )
+    assigned_staff_assignments, assigned_staff_pagination = _paginate(
+        request, assigned_staff_assignments, page_param='staff_page'
+    )
+
     return render(request, 'assigned_laptop_list.html', {
         'students': students,
         'staffs': staffs,
         'available_laptops_list': available_laptops,
         'available_count': available_laptops.count(),
         'assigned_students': assigned_students,
+        'assigned_students_pagination': assigned_students_pagination,
         'assigned_staff_assignments': assigned_staff_assignments,
-        'assigned_count': assigned_students.count() + assigned_staff_assignments.count(),
+        'assigned_staff_pagination': assigned_staff_pagination,
+        'assigned_count': assigned_count,
         'available_laptops_count': available_laptops_count,
     })
 
@@ -1640,13 +1676,28 @@ def return_laptop_list(request):
             messages.success(request, f'Complete return completed for {laptop.SerialNumber}. Inventory status is now {laptop.status}.')
         return redirect('rental_system:return_laptop_list')
 
+    assigned_records_count = len(assigned_records)
+    completed_returns_count = len(filtered_completed_returns)
+    assigned_records, assigned_records_pagination = _paginate(
+        request, assigned_records, page_param='returns_page'
+    )
+    assigned_staff_assignments, staff_returns_pagination = _paginate(
+        request, assigned_staff_assignments, page_param='staff_returns_page'
+    )
+    filtered_completed_returns, return_history_pagination = _paginate(
+        request, filtered_completed_returns, page_param='history_page'
+    )
+
     return render(request, 'return_laptop_list.html', {
         'assigned_students': assigned_students,
         'assigned_staff_assignments': assigned_staff_assignments,
+        'staff_returns_pagination': staff_returns_pagination,
         'assigned_records': assigned_records,
-        'assigned_records_count': len(assigned_records),
+        'assigned_records_pagination': assigned_records_pagination,
+        'assigned_records_count': assigned_records_count,
         'completed_returns': filtered_completed_returns,
-        'completed_returns_count': len(filtered_completed_returns),
+        'return_history_pagination': return_history_pagination,
+        'completed_returns_count': completed_returns_count,
         'selected_owner_type': request.GET.get('owner_type', ''),
         'selected_owner_id': request.GET.get('owner_id', ''),
         'available_laptops_count': available_laptops_count,
@@ -1716,8 +1767,10 @@ def issue_list(request):
             messages.success(request, f'Issue for {issue.laptop.SerialNumber} marked as completed.')
         return redirect('rental_system:issue_list')
 
+    issues, issues_pagination = _paginate(request, repair_logs)
     return render(request, 'issue_list.html', {
-        'issues': repair_logs,
+        'issues': issues,
+        'issues_pagination': issues_pagination,
         'active_issues_count': active_issues.count(),
         'repairing_count': repair_logs.filter(repair_status='Repairing').count(),
         'available_for_issue': available_for_issue,
@@ -1791,7 +1844,6 @@ def audit_logs(request):
         return redirect('rental_system:login')
     
     from .models import AuditLog
-    from django.core.paginator import Paginator
     from django.db.models import Q
     # Base queryset
     logs = AuditLog.objects.select_related('staff').all()
@@ -1839,14 +1891,12 @@ def audit_logs(request):
     # Get all staff for filter dropdown
     staff_list = ManagementStaff.objects.filter(status='Active').order_by('name')
     
-    # Pagination
-    paginator = Paginator(logs, 20)  # 20 logs per page
-    page_number = request.GET.get('page', 1)
-    page_obj = paginator.get_page(page_number)
+    page_obj, logs_pagination = _paginate(request, logs)
     
     context = {
         'user': current_staff,
         'logs': page_obj,
+        'logs_pagination': logs_pagination,
         'tables': tables,
         'staff_list': staff_list,
         'title': 'Audit Logs',
@@ -2144,7 +2194,10 @@ def staff_list(request):
         sort = 'newest'
         staff_qs = staff_qs.order_by('-id')
 
-    staff_list_data = list(staff_qs)
+    total_staff = staff_qs.count()
+    staff_page, staff_pagination = _paginate(request, staff_qs)
+    staff_list_data = list(staff_page.object_list)
+    staff_page.object_list = staff_list_data
 
     person_ids = [s.person_id for s in staff_list_data]
     active_assignments = LaptopAssignment.objects.select_related('laptop').filter(
@@ -2162,7 +2215,8 @@ def staff_list(request):
     available_laptops = Laptop.objects.filter(status="Available").count()
 
     return render(request, "staff_list.html", {
-        "staff": staff_list_data,
+        "staff": staff_page,
+        "staff_pagination": staff_pagination,
         "staff_types": Staff.STAFF_TYPE_CHOICES,
         "departments": Staff.DEPARTMENT_CHOICES,
         "office_sections": Staff.OFFICE_SECTION_CHOICES,
@@ -2172,7 +2226,7 @@ def staff_list(request):
         "selected_unit": unit,
         "selected_staff_type": staff_type,
         "selected_sort": sort,
-        "total_staff": len(staff_list_data),
+        "total_staff": total_staff,
     })
 
 
@@ -2458,11 +2512,17 @@ def _access_levels(permissions):
     return levels
 
 
-def _account_admin_context(**extra):
+def _account_admin_context(request=None, **extra):
+    staff_accounts = ManagementStaff.objects.select_related('auth_user').order_by('-status', 'name')
     context = {
         'permission_groups': PERMISSION_GROUPS,
-        'staff_accounts': ManagementStaff.objects.select_related('auth_user').order_by('-status', 'name'),
+        'staff_accounts': staff_accounts,
+        'total_staff_accounts': staff_accounts.count(),
     }
+    if request is not None:
+        staff_accounts, accounts_pagination = _paginate(request, staff_accounts, page_param='account_page')
+        context['staff_accounts'] = staff_accounts
+        context['accounts_pagination'] = accounts_pagination
     context.update(extra)
     return context
 
@@ -2523,7 +2583,7 @@ def assign_new_admin(request):
         if errors:
             for error in errors:
                 messages.error(request, error)
-            return render(request, 'assign_new_admin.html', _account_admin_context(form_data=form_data))
+            return render(request, 'assign_new_admin.html', _account_admin_context(request, form_data=form_data))
 
         try:
             with transaction.atomic():
@@ -2559,12 +2619,12 @@ def assign_new_admin(request):
             return redirect('rental_system:assign_new_admin')
         except IntegrityError:
             messages.error(request, 'That username or email address is already registered.')
-            return render(request, 'assign_new_admin.html', _account_admin_context(form_data=form_data))
+            return render(request, 'assign_new_admin.html', _account_admin_context(request, form_data=form_data))
         except Exception as e:
             messages.error(request, 'The account could not be created. Please review the details and try again.')
-            return render(request, 'assign_new_admin.html', _account_admin_context(form_data=form_data))
+            return render(request, 'assign_new_admin.html', _account_admin_context(request, form_data=form_data))
 
-    return render(request, 'assign_new_admin.html', _account_admin_context())
+    return render(request, 'assign_new_admin.html', _account_admin_context(request))
 
 
 def edit_staff_access(request, pk):
@@ -2646,7 +2706,7 @@ def edit_staff_access(request, pk):
         'status': request.POST.get('status', account.status),
         'access_levels': _access_levels(_permissions_from_post(request) if request.method == 'POST' else account.permissions),
     }
-    return render(request, 'assign_new_admin.html', _account_admin_context(
+    return render(request, 'assign_new_admin.html', _account_admin_context(request,
         form_data=form_data,
         editing_account=account,
     ))

@@ -18,7 +18,7 @@
       <h2 class="section-title" id="accounts-heading">Current accounts</h2>
       <p class="section-copy">Daw Moe Thida always has full access. Other accounts receive only the access selected below.</p>
     </div>
-    <span class="account-count">{{ staff_accounts|length }} account{{ staff_accounts|length|pluralize }}</span>
+    <span class="account-count">{{ total_staff_accounts }} account{{ total_staff_accounts|pluralize }}</span>
   </div>
   <div class="table-responsive">
     <table class="table access-table">
@@ -42,6 +42,7 @@
       </tbody>
     </table>
   </div>
+  {% include "partials/pagination.html" with pagination=accounts_pagination label="ITSM accounts" %}
 </section>
 {% endif %}
 

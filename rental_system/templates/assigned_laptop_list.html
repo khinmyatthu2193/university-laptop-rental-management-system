@@ -244,6 +244,8 @@
     <div id="assignmentEmptyState" class="text-center text-muted py-4 d-none">
       No assignments found for this filter.
     </div>
+    {% include "partials/pagination.html" with pagination=assigned_students_pagination label="Student assignments" %}
+    {% include "partials/pagination.html" with pagination=assigned_staff_pagination label="Staff assignments" %}
   </div>
 
   {% if access.assignments.manage %}

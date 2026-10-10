@@ -123,6 +123,7 @@
       </tbody>
     </table>
   </div>
+  {% include "partials/pagination.html" with pagination=assigned_records_pagination label="Active returns" %}
 </div>
 
 <div class="data-section">
@@ -195,6 +196,7 @@
       </tbody>
     </table>
   </div>
+  {% include "partials/pagination.html" with pagination=staff_returns_pagination label="Staff returns" %}
 </div>
 
 <div class="data-section">
@@ -276,6 +278,7 @@
       </tbody>
     </table>
   </div>
+  {% include "partials/pagination.html" with pagination=return_history_pagination label="Return history" %}
 </div>
 
 {% for s in assigned_students %}

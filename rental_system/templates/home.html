@@ -1198,6 +1198,90 @@
         width: 100%;
       }
 
+      .data-pagination {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 16px 2px 2px;
+      }
+
+      .data-pagination-summary {
+        margin: 0;
+        color: var(--text-muted);
+        font-size: 0.82rem;
+      }
+
+      .data-pagination-controls,
+      .data-page-numbers {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .data-page-link {
+        min-width: 36px;
+        min-height: 36px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 7px;
+        padding: 7px 10px;
+        color: var(--miit-navy);
+        background: #fff;
+        border: 1px solid var(--border-color);
+        border-radius: 7px;
+        font-size: 0.82rem;
+        font-weight: 600;
+        line-height: 1;
+        text-decoration: none;
+        transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease;
+      }
+
+      .data-page-link:hover {
+        color: var(--miit-navy);
+        background: var(--miit-blue-soft);
+        border-color: #b9dff3;
+      }
+
+      .data-page-link.is-current {
+        color: #fff;
+        background: var(--miit-navy);
+        border-color: var(--miit-navy);
+      }
+
+      .data-page-link.is-disabled {
+        color: #94a3b8;
+        background: #f8fafc;
+        cursor: not-allowed;
+        opacity: 0.8;
+      }
+
+      .data-page-ellipsis {
+        min-width: 26px;
+        color: var(--text-muted);
+        text-align: center;
+      }
+
+      @media (max-width: 640px) {
+        .data-pagination {
+          align-items: stretch;
+          flex-direction: column;
+        }
+
+        .data-pagination-controls {
+          justify-content: space-between;
+        }
+
+        .data-page-numbers {
+          display: none;
+        }
+
+        .data-page-direction {
+          min-width: 108px;
+        }
+      }
+
       .content-header {
         margin-bottom: 22px;
         padding-bottom: 0;

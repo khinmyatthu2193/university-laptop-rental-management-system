@@ -181,7 +181,7 @@
           <tbody>
             {% for s in staff %}
             <tr>
-              <td class="text-muted">{{ forloop.counter }}</td>
+              <td class="text-muted">{{ staff.start_index|add:forloop.counter0 }}</td>
               <td>
                 <div class="fw-bold">{{ s.person.name }}</div>
                 <div class="small text-muted">{{ s.person.outlook_mail }}</div>
@@ -227,6 +227,7 @@
       </div>
     </div>
   {% endif %}
+  {% include "partials/pagination.html" with pagination=staff_pagination label="Staff" %}
 </div>
 
 <!-- ADD STAFF POPUP -->

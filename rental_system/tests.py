@@ -439,6 +439,71 @@ class StaffImportTests(TestCase):
         self.assertIsNone(office_staff.department)
 
 
+class PaginationTests(TestCase):
+    def setUp(self):
+        user = User.objects.create_user(
+            username='daw_moe_thida',
+            email='daw_moe_thida@miit.edu.mm',
+            password='A-strong-local-password-2026',
+        )
+        ManagementStaff.objects.create(
+            auth_user=user,
+            name='Daw Moe Thida',
+            username='daw_moe_thida',
+            outlook_mail='daw_moe_thida@miit.edu.mm',
+            position='ITSM Head',
+            department='ITSM',
+            role='SystemAdmin',
+        )
+        self.client.force_login(user)
+
+        for index in range(17):
+            person = Person.objects.create(
+                name=f'Staff {index:02d}',
+                phone_number='',
+                outlook_mail=f'staff{index:02d}@miit.edu.mm',
+                person_type='Staff',
+            )
+            Staff.objects.create(
+                person=person,
+                staff_type='Teaching',
+                position='Lecturer',
+                department='FCST',
+            )
+            Laptop.objects.create(
+                SerialNumber=f'PAGE-{index:03d}',
+                name='Pagination Model',
+                brand='Test',
+                processor_gen='Test CPU',
+                ram=8,
+                storage='256GB SSD',
+                for_whom='Staff',
+                status='Available',
+            )
+
+    def test_staff_list_uses_fifteen_rows_per_page(self):
+        response = self.client.get(reverse('rental_system:staff_list'), {'page': 2})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['total_staff'], 17)
+        self.assertEqual(response.context['staff'].number, 2)
+        self.assertEqual(len(response.context['staff']), 2)
+
+    def test_inventory_pagination_preserves_filters(self):
+        response = self.client.get(
+            reverse('rental_system:inventory_list'),
+            {'status': 'Available', 'sort': 'az', 'page': 2},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['total_laptops_filtered'], 17)
+        self.assertEqual(len(response.context['laptops']), 2)
+        query_string = response.context['laptops_pagination']['query_string']
+        self.assertIn('status=Available', query_string)
+        self.assertIn('sort=az', query_string)
+        self.assertNotIn('page=', query_string)
+
+
 class LegacyAssignmentImportTests(TestCase):
     password = 'A-strong-local-password-2026'
 
