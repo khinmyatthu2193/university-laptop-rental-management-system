@@ -37,6 +37,13 @@ STAFF_IMPORT_COLUMNS = [
     'position', 'department', 'office_section', 'laptop',
 ]
 
+STAFF_TYPE_IMPORT_ALIASES = {
+    'teaching': 'Teaching',
+    'teaching staff': 'Teaching',
+    'office': 'Office',
+    'office staff': 'Office',
+}
+
 
 def validate_excel_upload(upload):
     if upload is None:
@@ -929,6 +936,11 @@ def _excel_text(value):
     if isinstance(value, float) and value.is_integer():
         return str(int(value))
     return str(value).strip()
+
+
+def _normalize_imported_staff_type(value):
+    label = re.sub(r'\s+', ' ', _excel_text(value)).casefold()
+    return STAFF_TYPE_IMPORT_ALIASES.get(label)
 
 
 def _excel_date(value):
@@ -2364,21 +2376,28 @@ def import_staff_excel(request):
 
     imported_count = 0
 
-    for _, row in df.iterrows():
-        outlook_mail = str(row.get('outlook_mail', '')).strip()
+    for row_index, row in df.iterrows():
+        outlook_mail = _excel_text(row.get('outlook_mail', ''))
         if not outlook_mail:
             continue
 
-        name = str(row.get('name', '')).strip()
-        phone_number = str(row.get('phone_number', '')).strip()
-        staff_type = str(row.get('staff_type', '')).strip()
-        position = str(row.get('position', '')).strip()
-        department = str(row.get('department', '')).strip()
-        office_section = str(row.get('office_section', '')).strip()
-        laptop_serial = str(row.get('laptop', '')).strip()
+        name = _excel_text(row.get('name', ''))
+        phone_number = _excel_text(row.get('phone_number', ''))
+        raw_staff_type = _excel_text(row.get('staff_type', ''))
+        staff_type = _normalize_imported_staff_type(raw_staff_type)
+        position = _excel_text(row.get('position', ''))
+        department = _excel_text(row.get('department', ''))
+        office_section = _excel_text(row.get('office_section', ''))
+        laptop_serial = _excel_text(row.get('laptop', ''))
 
-        if staff_type not in ['Teaching', 'Office']:
-            staff_type = 'Office'
+        if staff_type is None:
+            transaction.set_rollback(True)
+            messages.error(
+                request,
+                f'Invalid staff_type "{raw_staff_type}" on Excel row {row_index + 2}. '
+                'Use Teaching, Teaching Staff, Office, or Office Staff.'
+            )
+            return redirect('rental_system:staff_list')
 
         if staff_type == 'Teaching':
             office_section = ''

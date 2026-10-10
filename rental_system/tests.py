@@ -8,7 +8,7 @@ from django.test import TestCase
 from django.urls import reverse
 from openpyxl import Workbook, load_workbook
 
-from .models import Laptop, LaptopAssignment, ManagementStaff, Person, Student, SystemPreference
+from .models import Laptop, LaptopAssignment, ManagementStaff, Person, Staff, Student, SystemPreference
 
 
 class PhaseOneSecurityTests(TestCase):
@@ -377,6 +377,66 @@ class ImportTemplateTests(TestCase):
                 workbook = load_workbook(BytesIO(response.content), read_only=True)
                 headers = [cell.value for cell in next(workbook.active.iter_rows(max_row=1))]
                 self.assertEqual(headers, expected_headers)
+
+
+class StaffImportTests(TestCase):
+    def setUp(self):
+        user = User.objects.create_user(
+            username='staff_importer',
+            email='staff_importer@miit.edu.mm',
+            password='A-strong-local-password-2026',
+        )
+        ManagementStaff.objects.create(
+            auth_user=user,
+            name='Staff Importer',
+            username='staff_importer',
+            outlook_mail='staff_importer@miit.edu.mm',
+            position='IT Support',
+            department='ITSM',
+            role='Admin',
+            permissions=['staff_records.manage'],
+        )
+        self.client.force_login(user)
+
+    def workbook_upload(self, rows):
+        workbook = Workbook()
+        worksheet = workbook.active
+        worksheet.append([
+            'name', 'outlook_mail', 'phone_number', 'staff_type',
+            'position', 'department', 'office_section', 'laptop',
+        ])
+        for row in rows:
+            worksheet.append(row)
+        output = BytesIO()
+        workbook.save(output)
+        return SimpleUploadedFile(
+            'staff.xlsx',
+            output.getvalue(),
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        )
+
+    def test_import_normalizes_staff_labels_and_blank_cells(self):
+        upload = self.workbook_upload([
+            ['Teaching Person', 'teacher@miit.edu.mm', None, 'Teaching Staff', 'Lecturer', 'FCST', None, None],
+            ['Office Person', 'office@miit.edu.mm', None, 'Office Staff', 'Officer', None, 'Management', None],
+        ])
+
+        response = self.client.post(reverse('rental_system:import_staff'), {'file': upload})
+
+        self.assertRedirects(
+            response,
+            reverse('rental_system:staff_list'),
+            fetch_redirect_response=False,
+        )
+        teacher = Staff.objects.get(person__outlook_mail='teacher@miit.edu.mm')
+        office_staff = Staff.objects.get(person__outlook_mail='office@miit.edu.mm')
+        self.assertEqual(teacher.staff_type, 'Teaching')
+        self.assertEqual(teacher.department, 'FCST')
+        self.assertIsNone(teacher.office_section)
+        self.assertEqual(teacher.person.phone_number, '')
+        self.assertEqual(office_staff.staff_type, 'Office')
+        self.assertEqual(office_staff.office_section, 'Management')
+        self.assertIsNone(office_staff.department)
 
 
 class LegacyAssignmentImportTests(TestCase):
