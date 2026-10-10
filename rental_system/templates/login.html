@@ -5,11 +5,15 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#142b58">
+  <meta name="theme-color" content="#0b1f78">
   <title>Log In | University Laptop Rental Management System</title>
   <style>
     :root {
-      --miit-navy: #142b58;
+      --miit-navy: #0b1f78;
+      --miit-navy-hover: #07175c;
+      --miit-blue: #0a84cf;
+      --miit-blue-soft: #eaf6fc;
+      --miit-gold: #f2c94c;
       --text: #202939;
       --muted: #667085;
       --border: #d7dde6;
@@ -51,8 +55,9 @@
       width: min(920px, 100%);
       background: var(--surface);
       border: 1px solid #dfe3e9;
+      border-top: 4px solid var(--miit-gold);
       border-radius: 10px;
-      box-shadow: 0 4px 12px rgba(20, 43, 88, 0.06);
+      box-shadow: 0 4px 12px rgba(11, 31, 120, 0.06);
       overflow: hidden;
     }
 
@@ -68,7 +73,7 @@
       align-items: flex-start;
       min-height: 360px;
       padding: 44px 48px;
-      background: #f7faff;
+      background: var(--miit-blue-soft);
       border-right: 1px solid #e5e7eb;
     }
 
@@ -89,6 +94,7 @@
       padding: 12px 14px;
       background: #f1f5fa;
       border: 1px solid #dce4ee;
+      border-left: 4px solid var(--miit-gold);
       border-radius: 10px;
     }
 
@@ -158,8 +164,8 @@
     }
 
     .text-input:focus {
-      border-color: var(--miit-navy);
-      box-shadow: 0 0 0 3px rgba(20, 43, 88, 0.12);
+      border-color: var(--miit-blue);
+      box-shadow: 0 0 0 3px rgba(10, 132, 207, 0.16);
     }
 
     .password-field {
@@ -216,7 +222,7 @@
 
     .submit-button:hover,
     .submit-button:focus-visible {
-      background: #1d3d72;
+      background: var(--miit-navy-hover);
     }
 
     .submit-button:disabled {

@@ -6,7 +6,7 @@
 <style>
   .main-content { background: #f8fafc; }
   .dashboard-page {
-    --db-primary: #142b57;
+    --db-primary: #0b1f78;
     --db-bg: #f8fafc;
     --db-card: #fff;
     --db-text: #0f172a;
@@ -50,7 +50,7 @@
   .dashboard-page .dashboard-button:focus-visible,
   .dashboard-page .modal-close-button:focus-visible,
   .dashboard-page .form-control:focus-visible {
-    outline: 3px solid rgba(20,43,87,.22); outline-offset: 2px; box-shadow: none;
+    outline: 3px solid rgba(11,31,120,.22); outline-offset: 2px; box-shadow: none;
   }
   .dashboard-page .primary-metrics {
     display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 16px; margin-bottom: 16px;
@@ -429,7 +429,7 @@
         showChartState("assignmentsChart","assignmentsLoading","assignmentsEmpty",true);
         new Chart(document.getElementById("assignmentsChart"), {
           type:"line",
-          data:{labels:monthlyLabels,datasets:[{label:"Assignments",data:monthlyData,borderColor:colors.primary,backgroundColor:"rgba(20,43,87,.08)",borderWidth:2,pointBackgroundColor:"#FFF",pointBorderColor:colors.primary,pointBorderWidth:2,pointRadius:3,pointHoverRadius:5,tension:.32,fill:true}]},
+          data:{labels:monthlyLabels,datasets:[{label:"Assignments",data:monthlyData,borderColor:colors.primary,backgroundColor:"rgba(11,31,120,.08)",borderWidth:2,pointBackgroundColor:"#FFF",pointBorderColor:colors.primary,pointBorderWidth:2,pointRadius:3,pointHoverRadius:5,tension:.32,fill:true}]},
           options:{responsive:true,maintainAspectRatio:false,interaction:{intersect:false,mode:"index"},plugins:{
             legend:{display:false},tooltip:{backgroundColor:"#0F172A",titleColor:"#FFF",bodyColor:"#E2E8F0",padding:11,cornerRadius:8,displayColors:false}
           },scales:{

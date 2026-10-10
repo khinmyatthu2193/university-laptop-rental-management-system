@@ -28,12 +28,12 @@
 
     <style>
       :root {
-        /* MIIT Logo Colors */
-        --light-blue: #cce3f3;
-        --blue: #5b72b5;
-        --sky-blue: #89adda;
-        --yellow-gold: #dde659;
-        --purple-dark: #362e90;
+        /* MIIT logo palette: royal navy, digital blue, cyan, and gold. */
+        --light-blue: #dff2fc;
+        --blue: #167fbe;
+        --sky-blue: #70c7ec;
+        --yellow-gold: #f2c94c;
+        --purple-dark: #0b1f78;
         --white: #ffffff;
 
         /* Text Colors */
@@ -52,8 +52,8 @@
         --success-color: #27ae60;
         --light-bg: var(--light-blue);
         --dark-color: var(--purple-dark);
-        --border-color: rgba(91, 114, 181, 0.3);
-        --card-shadow: 0 8px 24px rgba(91, 114, 181, 0.15);
+        --border-color: rgba(22, 127, 190, 0.3);
+        --card-shadow: 0 8px 24px rgba(22, 127, 190, 0.15);
 
         /* Beautiful Blue Gradients */
         --blue-gradient-main: linear-gradient(
@@ -147,7 +147,7 @@
         border-color: var(--yellow-gold);
         outline: none;
         background: rgba(255, 255, 255, 0.35);
-        box-shadow: 0 0 0 3px rgba(221, 230, 89, 0.2);
+        box-shadow: 0 0 0 3px rgba(242, 201, 76, 0.2);
       }
 
       .unikit-search::placeholder {
@@ -159,7 +159,7 @@
         width: 40px;
         height: 40px;
         border-radius: 999px;
-        background: linear-gradient(135deg, var(--yellow-gold), #f0e68c);
+        background: linear-gradient(135deg, var(--yellow-gold), #ffe58a);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -181,7 +181,7 @@
         font-weight: 500;
       }
       .dropdown-item:hover {
-        background: rgba(91, 114, 181, 0.1);
+        background: rgba(22, 127, 190, 0.1);
         color: var(--purple-dark);
       }
 
@@ -345,7 +345,7 @@
       .btn-primary:hover {
         background: linear-gradient(135deg, var(--purple-dark), var(--blue));
         transform: translateY(-2px);
-        box-shadow: 0 5px 15px rgba(54, 46, 144, 0.3);
+        box-shadow: 0 5px 15px rgba(11, 31, 120, 0.3);
       }
 
       .btn-outline {
@@ -368,7 +368,7 @@
       }
 
       .btn-warning {
-        background: linear-gradient(135deg, var(--yellow-gold), #f0e68c);
+        background: linear-gradient(135deg, var(--yellow-gold), #ffe58a);
         color: var(--purple-dark);
       }
 
@@ -430,7 +430,7 @@
         background: linear-gradient(135deg, var(--sky-blue), var(--blue));
       }
       .card-icon-3 {
-        background: linear-gradient(135deg, var(--yellow-gold), #f0e68c);
+        background: linear-gradient(135deg, var(--yellow-gold), #ffe58a);
         color: var(--purple-dark);
       }
       .card-icon-4 {
@@ -440,7 +440,7 @@
         background: linear-gradient(135deg, #e74c3c, #c0392b);
       }
       .card-icon-6 {
-        background: linear-gradient(135deg, #9b59b6, #8e44ad);
+        background: linear-gradient(135deg, var(--sky-blue), var(--purple-dark));
       }
 
       .card-title {
@@ -553,7 +553,7 @@
       }
 
       .badge-info {
-        background: rgba(91, 114, 181, 0.2);
+        background: rgba(22, 127, 190, 0.2);
         color: var(--blue);
         border: 1px solid var(--blue);
       }
@@ -583,7 +583,7 @@
       .form-control:focus {
         outline: none;
         border-color: var(--yellow-gold);
-        box-shadow: 0 0 0 3px rgba(221, 230, 89, 0.2);
+        box-shadow: 0 0 0 3px rgba(242, 201, 76, 0.2);
         background: white;
       }
 
@@ -633,7 +633,7 @@
         max-width: 600px;
         max-height: 80vh;
         overflow-y: auto;
-        box-shadow: 0 20px 40px rgba(54, 46, 144, 0.2);
+        box-shadow: 0 20px 40px rgba(11, 31, 120, 0.2);
         border: 1px solid rgba(255, 255, 255, 0.3);
       }
 
@@ -857,9 +857,12 @@
 
       /* MIIT academic administration theme */
       :root {
-        --miit-navy: #142b58;
-        --miit-navy-hover: #1e4178;
-        --miit-blue-soft: #eaf1fb;
+        --miit-navy: #0b1f78;
+        --miit-navy-hover: #07175c;
+        --miit-blue: #167fbe;
+        --miit-cyan: #70c7ec;
+        --miit-gold: #f2c94c;
+        --miit-blue-soft: #eaf6fc;
         --page-background: #f5f7fa;
         --surface: #ffffff;
         --text-primary: #1f2937;
@@ -868,7 +871,7 @@
         --border-color: #dfe5ec;
         --primary-color: var(--miit-navy);
         --dark-color: var(--miit-navy);
-        --card-shadow: 0 2px 8px rgba(20, 43, 88, 0.06);
+        --card-shadow: 0 2px 8px rgba(11, 31, 120, 0.06);
       }
 
       body,
@@ -886,7 +889,7 @@
         padding: 9px 24px;
         color: var(--text-primary);
         background: var(--surface);
-        border-bottom: 1px solid var(--border-color);
+        border-bottom: 2px solid var(--miit-gold);
         backdrop-filter: none;
         box-shadow: none;
       }
@@ -947,7 +950,7 @@
       .unikit-search:focus {
         background: #fff;
         border-color: var(--miit-navy);
-        box-shadow: 0 0 0 3px rgba(20, 43, 88, 0.1);
+        box-shadow: 0 0 0 3px rgba(11, 31, 120, 0.1);
       }
 
       .unikit-avatar {
@@ -969,7 +972,7 @@
       }
 
       .unikit-avatar-button:focus-visible {
-        outline: 3px solid rgba(20, 43, 88, 0.18);
+        outline: 3px solid rgba(11, 31, 120, 0.18);
         outline-offset: 2px;
       }
 
@@ -996,7 +999,7 @@
         background: #fff !important;
         border: 1px solid var(--border-color) !important;
         border-radius: 8px !important;
-        box-shadow: 0 6px 18px rgba(20, 43, 88, 0.1) !important;
+        box-shadow: 0 6px 18px rgba(11, 31, 120, 0.1) !important;
         backdrop-filter: none !important;
       }
 
@@ -1116,7 +1119,8 @@
       .unikit-nav-link.active {
         color: var(--miit-navy);
         background: var(--miit-blue-soft);
-        border-color: #d5e1f0;
+        border-color: #b9dff3;
+        box-shadow: inset 3px 0 0 var(--miit-gold);
         font-weight: 700;
       }
 
@@ -1403,7 +1407,7 @@
       .form-select:focus {
         background: #fff;
         border-color: var(--miit-navy);
-        box-shadow: 0 0 0 3px rgba(20, 43, 88, 0.1);
+        box-shadow: 0 0 0 3px rgba(11, 31, 120, 0.1);
       }
 
       .modal-overlay {
@@ -1416,7 +1420,7 @@
         background: #fff;
         border: 1px solid var(--border-color);
         border-radius: 10px;
-        box-shadow: 0 20px 50px rgba(20, 43, 88, 0.18);
+        box-shadow: 0 20px 50px rgba(11, 31, 120, 0.18);
         backdrop-filter: none;
       }
 
@@ -1656,7 +1660,7 @@
 
       .btn:focus-visible,
       .unikit-nav-link:focus-visible {
-        outline: 3px solid rgba(20, 43, 88, 0.14);
+        outline: 3px solid rgba(11, 31, 120, 0.14);
         outline-offset: 2px;
       }
 
