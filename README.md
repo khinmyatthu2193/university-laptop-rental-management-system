@@ -1,109 +1,70 @@
-# UniKit — University Laptop Rental Management System
+# UniKit
 
-UniKit is a Django web application for managing university laptop inventory, student and staff records, assignments, returns, and repairs. Developed at the **Myanmar Institute of Information Technology (MIIT)**, it brings laptop rental records into a centralized system to reduce paperwork, improve accuracy, and help staff track availability and laptop condition.
+**University Laptop Rental Management System** is a Django application for managing university laptop inventory and rentals at the Myanmar Institute of Information Technology (MIIT). It helps staff keep student and staff records, laptop assignments, returns, repairs, and account access in one place.
 
-## Project background
+## What it does
 
-Laptops are essential for university study, but not every student can afford a personal device. Universities provide rental laptops, while manual records in paper files and spreadsheets can make approvals slow and availability, return dates, and maintenance difficult to track.
+- Manage student, staff, and laptop records, including Excel imports.
+- Assign laptops and track expected return dates, returns, and overdue rentals.
+- Record repair issues and laptop condition.
+- View inventory and dashboard summaries, and review audit activity.
+- Create UniKit staff accounts and grant access by operational area.
 
-UniKit aims to:
+Laptop states include `Available`, `Assigned`, `In Repair`, and `Damage`. Active assignments use `Issued` or `Overdue`; completed assignments use `Returned`.
 
-- Replace manual rental processes with a centralized digital workflow.
-- Maintain up-to-date laptop inventory and assignment records.
-- Track issue dates, expected returns, and overdue assignments.
-- Record laptop condition and maintenance history.
-- Reduce administrative workload and support timely access to laptops.
-- Support management decision-making through reporting as the system develops.
+## Requirements
 
-## Core modules
+- Python 3.12 or newer
+- Windows, macOS, or Linux for local development
+- Python dependencies listed in [requirements.txt](requirements.txt)
 
-The final semester presentation identifies six implemented modules:
+The default database is SQLite (`db.sqlite3`). The production launcher and backup scripts described below are PowerShell scripts for Windows.
 
-| Module | Capabilities |
-| --- | --- |
-| User authentication | Management staff signup, login, and logout |
-| Student management | Register, view, update, search, and filter student records |
-| Staff management | Register, view, update, search, and filter teaching and office staff records |
-| Inventory management | Register laptops, update specifications, and track availability and status |
-| Assignment management | Assign laptops, view assignment status, and prevent duplicate active assignments |
-| Data management and validation | Validate input and maintain organized, editable records |
+## Run locally
 
-The current repository also includes return processing, overdue status updates, repair issue tracking, Excel imports for students/staff/laptops, dashboard summaries, account settings, and an audit log page. Laptop statuses include `Available`, `Assigned`, `In Repair`, and `Damage`; assignment statuses include `Issued`, `Returned`, and `Overdue`.
+From the project directory containing `manage.py`:
 
-## Typical workflow
+```bash
+python -m venv .venv
+```
 
-1. Register a management account and log in.
-2. Add or import student, staff, and laptop records.
-3. Assign an available laptop to a student or staff member.
-4. Review active assignments and expected return dates.
-5. Process returns and record the laptop's condition; track repair issues when needed.
-6. Review inventory, dashboard summaries, and recorded audit activity.
+Activate the environment:
 
-## Technology stack
+```powershell
+# Windows PowerShell
+.\.venv\Scripts\Activate.ps1
+```
 
-| Layer | Technology |
-| --- | --- |
-| Backend | Python and Django 6.0 |
-| Database | SQLite (default local configuration) |
-| Frontend | Django templates, HTML, CSS, JavaScript, and Bootstrap |
-| Spreadsheet imports | pandas and openpyxl |
+```bash
+# macOS or Linux
+source .venv/bin/activate
+```
 
-Dependency ranges are defined in [requirements.txt](requirements.txt).
+Install dependencies, create the database schema, and start the development server:
 
-## Local setup
+```bash
+python -m pip install -r requirements.txt
+python manage.py migrate
+python manage.py runserver
+```
 
-Run the following commands from the directory containing `manage.py`. Use Python 3.12 or newer for Django 6.0.
+Open <http://127.0.0.1:8000/>. For a new development database, create the initial management account at <http://127.0.0.1:8000/home/signin/> with an `@miit.edu.mm` email address. Sign in at <http://127.0.0.1:8000/home/login/>; the dashboard is at <http://127.0.0.1:8000/home/>.
 
-1. Create a virtual environment:
+To load optional sample data, stop the server and run:
 
-   ```bash
-   python -m venv .venv
-   ```
+```bash
+python manage.py shell -c "exec(open('seed_data.py', encoding='utf-8').read())"
+```
 
-2. Activate it:
+This creates or updates 100 laptops, 100 students, and 100 staff records. It does not create a login. Rerunning it overwrites matching sample records, including laptop statuses and student or staff laptop links, so use it only with a development database.
 
-   Windows PowerShell:
+Django admin at `/admin/` is separate from UniKit accounts and requires a Django superuser. Create one with `python manage.py createsuperuser` if needed.
 
-   ```powershell
-   .\.venv\Scripts\Activate.ps1
-   ```
+## Run on a single Windows laptop
 
-   macOS / Linux:
+The production setup is intended for local access on one Windows computer. Waitress listens on `127.0.0.1:8080`; other computers cannot connect. Do not expose the service to a network without first adding HTTPS and reviewing the security settings.
 
-   ```bash
-   source .venv/bin/activate
-   ```
-
-3. Install dependencies and apply database migrations:
-
-   ```bash
-   python -m pip install -r requirements.txt
-   python manage.py migrate
-   ```
-
-4. Optionally populate a development database with sample records:
-
-   ```bash
-   python manage.py shell -c "exec(open('seed_data.py', encoding='utf-8').read())"
-   ```
-
-   The script creates or updates 100 laptops, 100 students, and 100 staff records. It must run inside Django's initialized environment. Use it on a sample database: rerunning it overwrites matching sample records, including laptop statuses and student/staff laptop links. It does not create a management login.
-
-5. Start the development server:
-
-   ```bash
-   python manage.py runserver
-   ```
-
-6. Open <http://127.0.0.1:8000/>. Create a management account at <http://127.0.0.1:8000/home/signin/> using an `@miit.edu.mm` email address, then use <http://127.0.0.1:8000/home/login/> for subsequent logins. The application dashboard is at <http://127.0.0.1:8000/home/>.
-
-Application accounts use the `ManagementStaff` model. Django's separate `/admin/` interface uses a Django superuser, which can optionally be created with `python manage.py createsuperuser`.
-
-## Single-laptop production setup
-
-The real-use configuration is intentionally local-only. Waitress listens on `127.0.0.1`, so another computer cannot connect to UniKit. Do not change it to `0.0.0.0` without adding HTTPS and reviewing the security configuration.
-
-1. Install Python 3.12 or newer, then create a clean environment. The old `venv/` directory in some development copies may point to a Python installation that no longer exists.
+1. Create a clean Python environment and install dependencies. An old `venv/` folder may reference a Python installation that no longer exists.
 
    ```powershell
    python --version
@@ -113,50 +74,43 @@ The real-use configuration is intentionally local-only. Waitress listens on `127
    python -m pip install -r requirements.txt
    ```
 
-2. Generate a private production key and save it in the current Windows user's environment:
+2. Set a private Django key for your Windows user. Open a new PowerShell window afterward. Keep the key out of Git and do not share it.
 
    ```powershell
    $secret = python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
    [Environment]::SetEnvironmentVariable("DJANGO_SECRET_KEY", $secret, "User")
    ```
 
-   Open a new PowerShell window after setting the variable. Never put the resulting key in Git or the README.
-
-3. Start UniKit with the production settings:
+3. Start UniKit:
 
    ```powershell
    .\scripts\start_unikit.ps1
    ```
 
-4. Open <http://127.0.0.1:8080/>. Existing management accounts retain their passwords after the security migration. For a new empty database, `/home/signin/` creates the first system administrator and then closes public registration.
+   The script applies migrations, collects static files, and starts Waitress. Open <http://127.0.0.1:8080/>. Existing management accounts keep their passwords after migration. On a fresh database, `/home/signin/` creates the first system administrator and then closes public registration.
 
-Application access is managed inside UniKit:
+### UniKit accounts and access
 
-- **`daw_moe_thida`:** protected owner account with full access, including ITSM account creation and authorization.
-- **Other ITSM accounts:** receive No access, View only, or View and manage permission for each operational area.
+Application accounts are managed in UniKit; they are not Django admin accounts. The protected `daw_moe_thida` owner account has full access, including ITSM account administration. Other ITSM accounts can be granted no access, view-only, or view-and-manage access by operational area through **ITSM User Access**.
 
-Use **ITSM User Access** in the application sidebar to add accounts, change their status, reset a temporary password, and update module permissions. Django admin access remains separate and is not required for this workflow.
+New accounts and accounts with a reset password must change their temporary password after signing in before accessing operational areas. Account creation does not email or log plaintext passwords; provide temporary passwords through a separate trusted channel.
 
-New staff accounts—and accounts whose password is reset by Daw Moe Thida—must replace the temporary password after signing in before they can open any operational area.
+### Backups and restore
 
-Account creation no longer emails or logs plaintext passwords. Give a temporary password to the staff member through a separate trusted channel and have them change it after first login.
-
-### Backups
-
-Backups must be stored on a separate drive or device. Set a destination and run the backup script:
+Store backups on a separate drive or device. Set the destination and run the backup script:
 
 ```powershell
 [Environment]::SetEnvironmentVariable("UNIKIT_BACKUP_DIR", "E:\UniKit Backups", "User")
 .\scripts\backup_unikit.ps1
 ```
 
-Each backup is created through SQLite's online backup API, checked with `PRAGMA integrity_check`, and accompanied by a SHA-256 checksum. The command retains the newest 30 backups. Configure Windows Task Scheduler to run `scripts\backup_unikit.ps1` daily while the external backup device is available.
+The script uses SQLite's online backup API, runs an integrity check, writes a SHA-256 checksum, and retains the newest 30 backups. Schedule it daily in Windows Task Scheduler while the backup device is available.
 
-To restore, stop UniKit first, create one final backup if the current database is readable, verify the selected backup's SHA-256 checksum, and copy it to `db.sqlite3`. Start UniKit and verify login, inventory totals, active assignments, and recent audit entries. Test this procedure using a copied project before relying on it for official records.
+To restore, stop UniKit, make a final backup if the current database is readable, verify the chosen backup's checksum, and copy it to `db.sqlite3`. Restart UniKit and check login, inventory, active assignments, and recent audit entries. Practice the restore using a copy of the project before relying on it for official records.
 
 ### Production checks
 
-Run these after every update:
+After an update, run:
 
 ```powershell
 $env:DJANGO_SETTINGS_MODULE = "unikit_university_laptop_rental_management_system.production"
@@ -164,39 +118,33 @@ python manage.py check --deploy
 python manage.py test
 ```
 
-The local HTTP-only deployment intentionally does not enable HTTPS-only cookie and HSTS settings. Those settings become mandatory if UniKit is ever made accessible over a LAN or the internet.
+The local HTTP deployment does not enable HTTPS-only cookies or HSTS. These must be configured before making UniKit accessible over a LAN or the internet.
 
-## Project structure
+## Project layout
 
 ```text
-.
-├── manage.py
-├── requirements.txt
-├── seed_data.py
-├── rental_system/
-│   ├── models.py          # Inventory, people, assignments, repairs, and audit data
-│   ├── views.py           # Application workflows and request handlers
-│   ├── forms.py           # Student and laptop forms
-│   ├── urls.py            # Application routes under /home/
-│   ├── migrations/       # Database schema history
-│   ├── templates/        # Application pages
-│   └── templatetags/      # Template helpers
-└── unikit_university_laptop_rental_management_system/
-    ├── settings.py        # Django configuration
-    └── urls.py            # Landing page, application, and admin routes
+manage.py
+requirements.txt
+seed_data.py
+scripts/
+  start_unikit.ps1
+  backup_unikit.ps1
+rental_system/
+  models.py       # Inventory, people, assignments, repairs, and audit records
+  views.py        # Application workflows
+  forms.py        # Forms
+  urls.py         # Routes under /home/
+  migrations/     # Database schema history
+  templates/      # Application pages
+unikit_university_laptop_rental_management_system/
+  settings.py
+  production.py
+  urls.py
 ```
 
-## Future development
+## Project background and credits
 
-The April 2026 presentation lists overdue tracking, report generation, advanced dashboard analytics, PDF/Excel exports, notifications and reminders, UI improvements, and advanced security as future extensions.
-
-Since that presentation, the current code includes overdue tracking and dashboard summaries. The remaining roadmap items should be treated as planned enhancements; Excel import support does not imply Excel export support.
-
-## Academic context and credits
-
-This README draws on *UniKit: University Laptop Rental Management System — Final Semester Presentation*, presented on **2 April 2026** for **Computer Science and Engineering, I Semester 2025–2026**, at MIIT. Implementation details and setup instructions reflect the current repository.
-
-The presentation describes use case, workflow, and entity-relationship diagrams, along with an Agile prototype approach for iterative feedback and validation. Learning outcomes include Django development, authentication and access control, database design, system analysis, testing and debugging, teamwork, and presentation skills.
+UniKit was developed as a final-semester project for Computer Science and Engineering, I Semester 2025–2026, at MIIT. The project presentation was delivered on 2 April 2026. It describes the system workflows, data model, iterative prototype approach, and learning outcomes.
 
 **Instructor-in-charge:** Dr. Myat Thuzar Htun
 
@@ -207,3 +155,7 @@ The presentation describes use case, workflow, and entity-relationship diagrams,
 | Mg Shine Aung Lwin | 2019-MIIT-CSE-049 |
 | Ma Khin Myat Thu | 2021-MIIT-CSE-020 |
 | Ma Nandar Kyaw | 2021-MIIT-CSE-045 |
+
+## Roadmap
+
+Overdue tracking and dashboard summaries are implemented. Report generation, Excel or PDF exports, notifications, reminders, and further interface and security improvements remain possible future work. The existing Excel feature imports records; it does not export them.
