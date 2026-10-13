@@ -56,14 +56,12 @@
               <select name="laptop_id" class="form-select soft-input" required>
                 <option value="">-- Choose Laptop --</option>
                 {% for laptop in available_laptops_list %}
-                  {% if laptop.for_whom == "Student" %}
                     <option value="{{ laptop.id }}">
                       {{ laptop.SerialNumber }} — {{ laptop.brand }} {{ laptop.name }} — {{ laptop.ram }}GB
                     </option>
-                  {% endif %}
                 {% endfor %}
               </select>
-              <div class="form-text">Only laptops prepared for students are shown.</div>
+              <div class="form-text">Available laptops are shown. Assignment marks the laptop for the selected recipient type.</div>
             </div>
 
             <div class="d-flex justify-content-end">
@@ -113,14 +111,12 @@
               <select name="laptop_id" class="form-select soft-input" required>
                 <option value="">-- Choose Laptop --</option>
                 {% for laptop in available_laptops_list %}
-                  {% if laptop.for_whom == "Staff" %}
                     <option value="{{ laptop.id }}">
                       {{ laptop.SerialNumber }} — {{ laptop.brand }} {{ laptop.name }} — {{ laptop.ram }}GB
                     </option>
-                  {% endif %}
                 {% endfor %}
               </select>
-              <div class="form-text">Only laptops prepared for staff are shown.</div>
+              <div class="form-text">Available laptops are shown. Assignment marks the laptop for staff use.</div>
             </div>
 
             <div class="d-flex justify-content-end">

@@ -8,7 +8,7 @@ from django.test import TestCase
 from django.urls import reverse
 from openpyxl import Workbook, load_workbook
 
-from .models import Laptop, LaptopAssignment, ManagementStaff, Person, Staff, Student, SystemPreference
+from .models import AuditLog, Laptop, LaptopAssignment, ManagementStaff, Person, RepairLog, Staff, Student, SystemPreference
 
 
 class PhaseOneSecurityTests(TestCase):
@@ -245,6 +245,113 @@ class AssignmentIntegrityTests(TestCase):
         today = date.today()
         with self.assertRaises(IntegrityError), transaction.atomic():
             self.assignment(expected_return_date=today - timedelta(days=1))
+
+
+class StaffAssignmentViewTests(TestCase):
+    def setUp(self):
+        user = User.objects.create_user(
+            username='assignment_operator',
+            email='assignment_operator@miit.edu.mm',
+            password='A-strong-local-password-2026',
+        )
+        self.management_staff = ManagementStaff.objects.create(
+            auth_user=user,
+            name='Assignment Operator',
+            username='assignment_operator',
+            outlook_mail='assignment_operator@miit.edu.mm',
+            position='IT Support',
+            department='ITSM',
+            role='Admin',
+            permissions=['assignments.view', 'assignments.manage', 'audit_logs.view'],
+        )
+        self.client.force_login(user)
+        person = Person.objects.create(
+            name='Staff Recipient',
+            phone_number='09123456789',
+            outlook_mail='recipient@miit.edu.mm',
+            person_type='Staff',
+        )
+        self.staff = Staff.objects.create(
+            person=person,
+            staff_type='Teaching',
+            position='Lecturer',
+            department='FCST',
+        )
+        self.laptop = Laptop.objects.create(
+            SerialNumber='STAFF-AVAILABLE-001',
+            name='Available Model',
+            brand='Test Brand',
+            processor_gen='Test CPU',
+            ram=8,
+            storage='256GB SSD',
+            for_whom='Student',
+            status='Available',
+        )
+
+    def test_staff_assignment_creates_assignment_and_audit_log(self):
+        response = self.client.post(reverse('rental_system:assigned_laptop_list'), {
+            'action': 'assign',
+            'staff_id': self.staff.pk,
+            'laptop_id': self.laptop.pk,
+        })
+
+        self.assertRedirects(response, reverse('rental_system:assigned_laptop_list'))
+        self.laptop.refresh_from_db()
+        assignment = LaptopAssignment.objects.get()
+        self.assertEqual(assignment.person_id, self.staff.person_id)
+        self.assertEqual(self.laptop.status, 'Assigned')
+        self.assertEqual(self.laptop.for_whom, 'Staff')
+        audit = AuditLog.objects.get(target_table='laptop_assignment')
+        self.assertEqual(audit.staff_id, self.management_staff.pk)
+        self.assertEqual(audit.record_id, str(assignment.pk))
+
+
+class IssueReportViewTests(TestCase):
+    def setUp(self):
+        user = User.objects.create_user(
+            username='issue_operator',
+            email='issue_operator@miit.edu.mm',
+            password='A-strong-local-password-2026',
+        )
+        self.management_staff = ManagementStaff.objects.create(
+            auth_user=user,
+            name='Issue Operator',
+            username='issue_operator',
+            outlook_mail='issue_operator@miit.edu.mm',
+            position='IT Support',
+            department='ITSM',
+            role='Admin',
+            permissions=['issues.view', 'issues.manage'],
+        )
+        self.client.force_login(user)
+        self.laptop = Laptop.objects.create(
+            SerialNumber='ISSUE-001',
+            name='Issue Model',
+            brand='Test Brand',
+            processor_gen='Test CPU',
+            ram=8,
+            storage='256GB SSD',
+            for_whom='Student',
+            status='Available',
+        )
+
+    def test_issue_report_uses_prefilled_operator_and_marks_laptop_in_repair(self):
+        response = self.client.get(reverse('rental_system:issue_list'))
+        self.assertContains(response, 'value="Issue Operator"')
+
+        response = self.client.post(reverse('rental_system:issue_list'), {
+            'action': 'create',
+            'laptop_id': self.laptop.pk,
+            'issue_type': 'Screen',
+            'reported_by': self.management_staff.name,
+            'priority': 'Medium',
+            'issue_description': 'Display flickers intermittently.',
+        })
+
+        self.assertRedirects(response, reverse('rental_system:issue_list'))
+        self.assertEqual(RepairLog.objects.get().repair_status, 'Repairing')
+        self.laptop.refresh_from_db()
+        self.assertEqual(self.laptop.status, 'In Repair')
 
 
 class LaptopImportTests(TestCase):

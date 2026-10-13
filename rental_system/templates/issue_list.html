@@ -80,7 +80,7 @@
 </div>
 
 <div class="modal fade issue-report-modal" id="reportIssueModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-lg modal-dialog-centered issue-report-modal-dialog">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable issue-report-modal-dialog">
     <div class="modal-content issue-report-modal-content">
       <form method="post">
         {% csrf_token %}
@@ -113,7 +113,7 @@
             </div>
             <div class="col-md-6">
               <label class="form-label">Reported By</label>
-              <input type="text" name="reported_by" class="form-control" required>
+              <input type="text" name="reported_by" class="form-control" value="{{ management_staff.name|default:'' }}" required>
             </div>
             <div class="col-md-6">
               <label class="form-label">Priority</label>
@@ -147,23 +147,28 @@
 }
 
 .issue-report-modal.modal {
+    position: fixed !important;
+    inset: 0 !important;
+    z-index: 1055 !important;
     background: transparent !important;
     width: 100% !important;
     max-width: none !important;
     max-height: none !important;
     border: 0 !important;
     border-radius: 0 !important;
-    overflow: hidden !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
     box-shadow: none !important;
+}
+
+body.modal-open {
+    overflow: hidden !important;
 }
 
 .issue-report-modal-dialog {
     max-width: 980px;
-    margin: 1.75rem auto !important;
-}
-
-.issue-report-modal .modal-dialog-centered {
-    min-height: calc(100% - 3.5rem) !important;
+    margin: 1rem auto !important;
+    max-height: calc(100vh - 2rem);
 }
 
 .issue-report-modal-content {
@@ -183,7 +188,6 @@
 
 .issue-report-modal-body {
     padding: 1.3rem 1.5rem 1.4rem;
-    max-height: 72vh;
     overflow-y: auto;
 }
 
@@ -238,7 +242,8 @@
 
 @media (max-width: 768px) {
     .issue-report-modal-dialog {
-        margin: 0.6rem;
+        margin: 0.6rem !important;
+        max-height: calc(100vh - 1.2rem);
     }
 
     .issue-report-modal-content {
@@ -247,7 +252,6 @@
 
     .issue-report-modal-body {
         padding: 1rem;
-        max-height: 74vh;
     }
 }
 </style>

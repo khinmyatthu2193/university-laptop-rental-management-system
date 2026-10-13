@@ -350,8 +350,8 @@
         <div class="panel-header"><div><h2 class="panel-title" id="monthly-assignments-heading">Assignments by Month</h2><p class="panel-description">Assignment activity across the last six months.</p></div></div>
         <div class="chart-body">
           <div class="chart-state" id="assignmentsLoading" aria-live="polite"><div class="chart-loading-content"><span class="loading-spinner" aria-hidden="true"></span><span>Loading chart…</span></div></div>
-          <div class="chart-state" id="assignmentsEmpty" hidden><div class="chart-empty-content"><span class="chart-empty-icon" aria-hidden="true"><i class="fas fa-chart-line"></i></span><p class="empty-title">No assignment activity</p><p class="empty-copy">Monthly activity will appear after laptops are assigned.</p></div></div>
-          <canvas class="chart-canvas" id="assignmentsChart" role="img" aria-label="Line chart showing assignments by month"></canvas>
+          <div class="chart-state" id="assignmentsEmpty" hidden><div class="chart-empty-content"><span class="chart-empty-icon" aria-hidden="true"><i class="fas fa-chart-column"></i></span><p class="empty-title">No assignment activity</p><p class="empty-copy">Monthly activity will appear after laptops are assigned.</p></div></div>
+          <canvas class="chart-canvas" id="assignmentsChart" role="img" aria-label="Bar chart showing assignments by month"></canvas>
         </div>
       </article>
     </section>
@@ -428,8 +428,8 @@
       if (hasMonthly) {
         showChartState("assignmentsChart","assignmentsLoading","assignmentsEmpty",true);
         new Chart(document.getElementById("assignmentsChart"), {
-          type:"line",
-          data:{labels:monthlyLabels,datasets:[{label:"Assignments",data:monthlyData,borderColor:colors.primary,backgroundColor:"rgba(11,31,120,.08)",borderWidth:2,pointBackgroundColor:"#FFF",pointBorderColor:colors.primary,pointBorderWidth:2,pointRadius:3,pointHoverRadius:5,tension:.32,fill:true}]},
+          type:"bar",
+          data:{labels:monthlyLabels,datasets:[{label:"Assignments",data:monthlyData,backgroundColor:"rgba(20,43,87,.88)",hoverBackgroundColor:colors.primary,borderColor:colors.primary,borderWidth:1,borderRadius:7,borderSkipped:false,maxBarThickness:42}]},
           options:{responsive:true,maintainAspectRatio:false,interaction:{intersect:false,mode:"index"},plugins:{
             legend:{display:false},tooltip:{backgroundColor:"#0F172A",titleColor:"#FFF",bodyColor:"#E2E8F0",padding:11,cornerRadius:8,displayColors:false}
           },scales:{

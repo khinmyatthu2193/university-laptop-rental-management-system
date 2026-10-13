@@ -1400,9 +1400,21 @@ def assigned_laptop_list(request):
                     student.laptop = laptop
                     student.rental_status = 'Assigned'
                     student.save(update_fields=['laptop', 'rental_status'])
-                    get_or_create_student_assignment(student, laptop)
+                    assignment = get_or_create_student_assignment(student, laptop)
+                    laptop.for_whom = 'Student'
                     laptop.status = 'Assigned'
-                    laptop.save()
+                    laptop.save(update_fields=['for_whom', 'status'])
+                    AuditLog.objects.create(
+                        staff=request.management_staff,
+                        action_type='Create',
+                        target_table='laptop_assignment',
+                        record_id=str(assignment.pk),
+                        new_value=(
+                            f'Person: {student.full_name}; Laptop: {laptop.SerialNumber}; '
+                            f'Issue date: {assignment.issue_date}'
+                        ),
+                        description='Assigned laptop to student',
+                    )
                     messages.success(request, f'{laptop.SerialNumber} assigned to student {student.full_name}.')
                 return redirect('rental_system:assigned_laptop_list')
 
@@ -1414,10 +1426,8 @@ def assigned_laptop_list(request):
             ).first()
             if active_assignment:
                 messages.error(request, f'{staff.person.name} already has a laptop assigned.')
-            elif laptop.for_whom != 'Staff':
-                messages.error(request, f'Laptop {laptop.SerialNumber} is designated for {laptop.for_whom.lower()}s only.')
             else:
-                LaptopAssignment.objects.create(
+                assignment = LaptopAssignment.objects.create(
                     person=staff.person,
                     laptop=laptop,
                     issue_date=timezone.now().date(),
@@ -1425,8 +1435,20 @@ def assigned_laptop_list(request):
                     academic_year=str(timezone.now().year),
                     assignment_status='Issued',
                 )
+                laptop.for_whom = 'Staff'
                 laptop.status = 'Assigned'
-                laptop.save()
+                laptop.save(update_fields=['for_whom', 'status'])
+                AuditLog.objects.create(
+                    staff=request.management_staff,
+                    action_type='Create',
+                    target_table='laptop_assignment',
+                    record_id=str(assignment.pk),
+                    new_value=(
+                        f'Person: {staff.person.name}; Laptop: {laptop.SerialNumber}; '
+                        f'Issue date: {assignment.issue_date}'
+                    ),
+                    description='Assigned laptop to staff member',
+                )
                 messages.success(request, f'{laptop.SerialNumber} assigned to staff {staff.person.name}.')
             return redirect('rental_system:assigned_laptop_list')
 
@@ -1745,7 +1767,7 @@ def issue_list(request):
                 repair_cost=0,
                 repair_shop='Pending',
                 shop_address='Pending',
-                repair_status='Pending',
+                repair_status='Repairing',
             )
             laptop.status = 'In Repair'
             laptop.save()
