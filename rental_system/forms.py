@@ -39,11 +39,19 @@ class StaffForm(forms.ModelForm):
 
 # Laptop Management
 class LaptopForm(forms.ModelForm):
+    source = forms.ChoiceField(
+        label='Laptop Category',
+        choices=Laptop.LAPTOP_CATEGORY_CHOICES,
+        required=False,
+        widget=forms.RadioSelect(attrs={'class': 'laptop-category-radio'}),
+    )
+
     class Meta:
         model = Laptop
         fields = [
             "SerialNumber", "brand", "name", "processor_gen", "ram",
-            "storage", "for_whom", "status", "remark"
+            "storage", "for_whom", "source", "replacement_student_id",
+            "replacement_details", "remark"
         ]
         widgets = {
             "SerialNumber": forms.TextInput(attrs={"class": "form-control", "placeholder": "LP001"}),
@@ -53,6 +61,33 @@ class LaptopForm(forms.ModelForm):
             "ram": forms.NumberInput(attrs={"class": "form-control", "placeholder": "8"}),
             "storage": forms.TextInput(attrs={"class": "form-control", "placeholder": "512GB SSD"}),
             "for_whom": forms.Select(attrs={"class": "form-select"}),
-            "status": forms.Select(attrs={"class": "form-select"}),
+            "replacement_student_id": forms.TextInput(attrs={
+                "class": "form-control", "placeholder": "Student ID"
+            }),
+            "replacement_details": forms.Textarea(attrs={
+                "class": "form-control", "rows": 2,
+                "placeholder": "Replacement reason or reference"
+            }),
             "remark": forms.Textarea(attrs={"class": "form-control", "rows": 2}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if not self.instance.pk and not self.is_bound:
+            self.fields['source'].initial = 'University-Owned'
+
+    def clean(self):
+        cleaned_data = super().clean()
+        source = cleaned_data.get('source')
+        if not source and not self.instance.pk:
+            source = 'University-Owned'
+            cleaned_data['source'] = source
+        elif not source and self.instance.pk:
+            cleaned_data['source'] = self.instance.source
+            source = self.instance.source
+        if source == 'Student Replacement':
+            if not cleaned_data.get('replacement_student_id'):
+                self.add_error('replacement_student_id', 'Student ID is required for a student replacement.')
+            if not cleaned_data.get('replacement_details'):
+                self.add_error('replacement_details', 'Replacement information is required.')
+        return cleaned_data

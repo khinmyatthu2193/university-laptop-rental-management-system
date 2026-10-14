@@ -212,6 +212,20 @@ class Laptop(models.Model):
     ]
     for_whom = models.CharField(max_length=20, choices=FOR_WHOM_CHOICES)
 
+    LAPTOP_CATEGORY_CHOICES = [
+        ('University-Owned', 'University-Owned (\u1000\u103b\u1031\u102c\u1004\u103a\u1038\u1015\u102d\u102f\u1004\u103a)'),
+        ('Student Replacement', 'Student Replacement (\u1021\u1005\u102c\u1038\u1011\u102d\u102f\u1038)'),
+    ]
+    # Nullable preserves historical laptops until an administrator classifies them.
+    source = models.CharField(
+        max_length=30,
+        choices=LAPTOP_CATEGORY_CHOICES,
+        null=True,
+        blank=True,
+    )
+    replacement_student_id = models.CharField(max_length=100, blank=True, default='')
+    replacement_details = models.TextField(blank=True, default='')
+
     STATUS_CHOICES = [
         ('Available', 'Available'),
         ('Assigned', 'Assigned'),

@@ -19,13 +19,16 @@
         <i class="fas fa-plus me-2"></i>Add Device
       </button>
       {% endif %}
+      {% if access.inventory.view %}<a class="btn btn-outline-primary" href="{% url 'rental_system:export_laptops' %}">
+        <i class="fas fa-file-export me-2"></i>Export Excel
+      </a>{% endif %}
     </div>
   </div>
 
   <div class="d-flex flex-wrap gap-2 mb-3">
     {% for s in status_list %}
       <a class="btn btn-sm status-chip {% if status_active == s %}active{% endif %}"
-         href="?status={{ s|urlencode }}{% if search_query %}&search={{ search_query|urlencode }}{% endif %}{% if request.GET.sort %}&sort={{ request.GET.sort|urlencode }}{% endif %}">
+         href="?status={{ s|urlencode }}&category={{ category_active|urlencode }}{% if search_query %}&search={{ search_query|urlencode }}{% endif %}{% if request.GET.sort %}&sort={{ request.GET.sort|urlencode }}{% endif %}">
         {{ s }}
       </a>
     {% endfor %}
@@ -48,6 +51,15 @@
       </select>
     </div>
 
+    <div class="filter-item">
+      <label class="form-label filter-label">Laptop Category</label>
+      <select name="category" class="form-select filter-input">
+        {% for value, label in category_list %}
+          <option value="{{ value }}" {% if category_active == value %}selected{% endif %}>{{ label }}{% if value != 'All' %} ({{ category_counts|get_item:value }}){% endif %}</option>
+        {% endfor %}
+      </select>
+    </div>
+
     <div class="filter-btn-wrap">
       <button type="submit" class="btn w-100 filter-btn">Apply</button>
     </div>
@@ -62,6 +74,7 @@
 
     <form method="get" class="inventory-sort-form d-flex align-items-center gap-2">
       <input type="hidden" name="status" value="{{ status_active }}">
+      <input type="hidden" name="category" value="{{ category_active }}">
       <input type="hidden" name="search" value="{{ search_query }}">
 
       <label class="small text-muted fw-semibold mb-0">Sort by</label>
@@ -84,7 +97,8 @@
             <th style="width:140px;">CPU Gen</th>
             <th style="width:90px;">RAM</th>
             <th style="width:140px;">Storage</th>
-            <th style="width:120px;">For Whom</th>
+            <th style="width:170px;">Laptop Category</th>
+            <th style="width:120px;">Intended For</th>
             <th style="width:120px;">Status</th>
             <th>Assigned To</th>
             <th class="text-center" style="width:130px;">Action</th>
@@ -101,6 +115,15 @@
             <td>{{ l.processor_gen }}</td>
             <td>{{ l.ram }} GB</td>
             <td>{{ l.storage }}</td>
+            <td>
+              {% if l.source == 'University-Owned' %}
+                <span class="badge bg-light text-primary border">University-Owned</span>
+              {% elif l.source == 'Student Replacement' %}
+                <span class="badge bg-light text-warning border">Student Replacement</span>
+              {% else %}
+                <span class="badge bg-light text-muted border">Unclassified</span>
+              {% endif %}
+            </td>
             <td>
               {% if l.for_whom == "Student" %}
                 <span class="badge bg-info text-dark">Student</span>
@@ -146,12 +169,15 @@
                         title="Edit">
                   <i class="fas fa-edit"></i>
                 </button>
+                {% if access.issues.manage %}<a class="btn btn-sm btn-icon btn-issue" href="{% url 'rental_system:issue_list' %}?laptop_id={{ l.id }}" title="Report Issue" aria-label="Report issue for {{ l.SerialNumber }}">
+                  <i class="fas fa-triangle-exclamation"></i>
+                </a>{% endif %}
               </div>
             </td>
           </tr>
           {% empty %}
           <tr>
-            <td colspan="9" class="text-muted text-center py-4">No devices found.</td>
+            <td colspan="10" class="text-muted text-center py-4">No devices found.</td>
           </tr>
           {% endfor %}
         </tbody>
@@ -205,12 +231,28 @@
                 {{ form.storage }}
               </div>
               <div class="col-md-4">
-                <label class="form-label fw-semibold">For Whom</label>
+                <label class="form-label fw-semibold">Intended For</label>
                 {{ form.for_whom }}
+              </div>
+              <div class="col-md-8">
+                <label class="form-label fw-semibold">Laptop Category</label>
+                <div class="laptop-category-options">{{ form.source }}</div>
+                <small class="text-muted">Student replacements become university inventory and can be assigned normally.</small>
+              </div>
+              <div class="col-md-6 replacement-information-fields">
+                <label class="form-label fw-semibold">Replacement Student ID</label>
+                {{ form.replacement_student_id }}
+              </div>
+              <div class="col-md-6 replacement-information-fields">
+                <label class="form-label fw-semibold">Replacement Information</label>
+                {{ form.replacement_details }}
               </div>
               <div class="col-md-6">
                 <label class="form-label fw-semibold">Status</label>
-                {{ form.status }}
+                <div class="inventory-readonly-status">
+                  <span class="badge bg-success">Available</span>
+                  <small>Status is managed automatically by assignments, returns, and repairs.</small>
+                </div>
               </div>
               <div class="col-md-6">
                 <label class="form-label fw-semibold">Remark</label>
@@ -257,13 +299,13 @@
 
             <div class="alert alert-info mb-3">
               <strong>Required columns:</strong><br>
-              <code>SerialNumber, name, brand, processor_gen, ram, storage, remark</code>
+              <code>SerialNumber, name, brand, processor_gen, ram, storage, source, replacement_student_id, replacement_details, remark</code>
               <div class="mt-2 small">
-                New laptops are set to <strong>Student</strong> and <strong>Available</strong>. Existing audience and status values are preserved.
+                Use <strong>University-Owned</strong> or <strong>Student Replacement</strong>. Existing category and status values are preserved when category is omitted.
               </div>
             </div>
 
-            {% include "partials/import_template_row.html" with column_count="seven" template_url="rental_system:laptop_import_template" %}
+            {% include "partials/import_template_row.html" with column_count="ten" template_url="rental_system:laptop_import_template" %}
           </div>
         </div>
       </div>
@@ -291,6 +333,9 @@ document.addEventListener('DOMContentLoaded', function () {
             ram: "{{ l.ram|escapejs }}",
             storage: "{{ l.storage|escapejs }}",
             for_whom: "{{ l.for_whom|escapejs }}",
+            source: "{{ l.source|default:''|escapejs }}",
+            replacement_student_id: "{{ l.replacement_student_id|default:''|escapejs }}",
+            replacement_details: "{{ l.replacement_details|default:''|escapejs }}",
             status: "{{ l.status|escapejs }}",
             remark: "{{ l.remark|default:''|escapejs }}",
             replace: "{% if l.remark and 'Replace: Yes' in l.remark %}Yes{% else %}No{% endif %}",
@@ -381,7 +426,7 @@ document.addEventListener('DOMContentLoaded', function () {
                                 <div class="col-7">${laptop.storage || '—'}</div>
                             </div>
                             <div class="row mb-0">
-                                <div class="col-5 text-muted">For Whom:</div>
+                                <div class="col-5 text-muted">Intended For:</div>
                                 <div class="col-7">${laptop.for_whom || '—'}</div>
                             </div>
                         </div>
@@ -483,20 +528,34 @@ document.addEventListener('DOMContentLoaded', function () {
                                             <input name="storage" value="${laptop.storage}" class="form-control soft-input">
                                         </div>
                                         <div class="col-md-4">
-                                            <label class="form-label fw-semibold">For Whom</label>
+                                            <label class="form-label fw-semibold">Intended For</label>
                                             <select name="for_whom" class="form-select soft-input">
                                                 <option value="Student" ${laptop.for_whom === 'Student' ? 'selected' : ''}>Student</option>
                                                 <option value="Staff" ${laptop.for_whom === 'Staff' ? 'selected' : ''}>Staff</option>
                                             </select>
                                         </div>
+                                        <div class="col-md-8">
+                                            <label class="form-label fw-semibold">Laptop Category</label>
+                                            <div class="laptop-category-options">
+                                                <label><input type="radio" name="source" value="University-Owned" ${laptop.source === 'University-Owned' ? 'checked' : ''}> University-Owned (ကျောင်းပိုင်)</label>
+                                                <label><input type="radio" name="source" value="Student Replacement" ${laptop.source === 'Student Replacement' ? 'checked' : ''}> Student Replacement (အစားထိုး)</label>
+                                            </div>
+                                            <small class="text-muted">Student replacements become university inventory and can be assigned normally.</small>
+                                        </div>
+                                        <div class="col-md-6 replacement-information-fields">
+                                            <label class="form-label fw-semibold">Replacement Student ID</label>
+                                            <input name="replacement_student_id" value="${laptop.replacement_student_id || ''}" class="form-control soft-input">
+                                        </div>
+                                        <div class="col-md-6 replacement-information-fields">
+                                            <label class="form-label fw-semibold">Replacement Information</label>
+                                            <textarea name="replacement_details" class="form-control soft-input" rows="2">${laptop.replacement_details || ''}</textarea>
+                                        </div>
                                         <div class="col-md-6">
                                             <label class="form-label fw-semibold">Status</label>
-                                            <select name="status" class="form-select soft-input">
-                                                <option value="Available" ${laptop.status === 'Available' ? 'selected' : ''}>Available</option>
-                                                <option value="Assigned" ${laptop.status === 'Assigned' ? 'selected' : ''}>Assigned</option>
-                                                <option value="In Repair" ${laptop.status === 'In Repair' ? 'selected' : ''}>In Repair</option>
-                                                <option value="Damage" ${laptop.status === 'Damage' ? 'selected' : ''}>Damage</option>
-                                            </select>
+                                            <div class="inventory-readonly-status">
+                                                <span class="badge ${getStatusBadgeClass(laptop.status)}">${laptop.status}</span>
+                                                <small>Status is managed automatically by assignments, returns, and repairs.</small>
+                                            </div>
                                         </div>
                                         <div class="col-md-6">
                                             <label class="form-label fw-semibold">Remark</label>
@@ -519,8 +578,26 @@ document.addEventListener('DOMContentLoaded', function () {
         `;
 
         document.body.insertAdjacentHTML('beforeend', popupHtml);
+        bindCategoryFields(document.getElementById(popupId));
         return popupId;
     }
+
+    function bindCategoryFields(container) {
+        if (!container) return;
+        const radios = container.querySelectorAll('input[name="source"]');
+        const fields = container.querySelectorAll('.replacement-information-fields');
+        const update = () => {
+            const replacement = container.querySelector('input[name="source"]:checked')?.value === 'Student Replacement';
+            fields.forEach(field => {
+                field.hidden = !replacement;
+                field.querySelectorAll('input, textarea').forEach(input => input.required = replacement);
+            });
+        };
+        radios.forEach(radio => radio.addEventListener('change', update));
+        update();
+    }
+
+    bindCategoryFields(document.getElementById('addLaptopPopup'));
 
     document.getElementById('openAddLaptopBtn')?.addEventListener('click', function () {
         openDevicePopup('addLaptopPopup');

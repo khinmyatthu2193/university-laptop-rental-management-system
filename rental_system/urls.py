@@ -38,6 +38,7 @@ urlpatterns = [
     path('issues/', permission_required('issues.view', 'issues.manage')(views.issue_list), name='issue_list'),
     #End of SAL's Code
     path("inventory/import/", permission_required('inventory.manage')(views.import_laptops_excel), name="import_laptops"),
+    path("inventory/export/", permission_required('inventory.view')(views.export_laptops_excel), name="export_laptops"),
     path("inventory/import/template/", permission_required('inventory.manage')(views.laptop_import_template), name="laptop_import_template"),
 
 # Quick Assign
