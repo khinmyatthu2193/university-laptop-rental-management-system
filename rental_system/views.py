@@ -26,11 +26,29 @@ from openpyxl import Workbook
 from openpyxl.utils.datetime import from_excel
 
 from .access import ALL_PERMISSION_CODES, PERMISSION_GROUPS, landing_page_for
+from .services.inventory import (
+    active_assignment,
+    active_repairs,
+    assign_laptop,
+    complete_repair,
+    complete_return,
+    has_unresolved_damage,
+    inventory_discrepancies,
+    reconcile_status,
+    set_status,
+    start_repair,
+    ACTIVE_REPAIR_STATUSES,
+    audit_category_change,
+)
 
 ACTIVE_ASSIGNMENT_STATUSES = ('Issued', 'Overdue')
 MAX_IMPORT_BYTES = 5 * 1024 * 1024
 STUDENT_IMPORT_COLUMNS = ['student_id', 'full_name', 'email', 'phone', 'major', 'batch_year']
 LAPTOP_IMPORT_COLUMNS = [
+    'SerialNumber', 'name', 'brand', 'processor_gen', 'ram', 'storage',
+    'source', 'replacement_student_id', 'replacement_details', 'remark',
+]
+LAPTOP_IMPORT_REQUIRED_COLUMNS = [
     'SerialNumber', 'name', 'brand', 'processor_gen', 'ram', 'storage', 'remark',
 ]
 STAFF_IMPORT_COLUMNS = [
@@ -131,8 +149,8 @@ def get_active_assignment_for_laptop(laptop):
 
 
 def validate_laptop_is_assignable(laptop):
-    if laptop.status == 'Assigned':
-        return False, f'Laptop {laptop.SerialNumber} is already assigned.'
+    if laptop.status != 'Available':
+        return False, f'Laptop {laptop.SerialNumber} is not Available.'
 
     active_assignment = get_active_assignment_for_laptop(laptop)
     if active_assignment:
@@ -145,10 +163,13 @@ def validate_laptop_is_assignable(laptop):
     if Staff.objects.filter(laptop=laptop).exists():
         return False, f'Laptop {laptop.SerialNumber} is already linked to a staff member.'
 
+    if active_repairs(laptop).exists() or has_unresolved_damage(laptop):
+        return False, f'Laptop {laptop.SerialNumber} is blocked by repair or damage.'
+
     return True, ''
 
 
-def sync_laptop_assignment_statuses():
+def sync_laptop_assignment_statuses(staff=None):
     """
     Keep laptop.status aligned with assignment ownership links.
     At minimum, any actively assigned laptop must not remain 'Available'.
@@ -174,7 +195,11 @@ def sync_laptop_assignment_statuses():
     if not assigned_ids:
         return
 
-    Laptop.objects.filter(id__in=assigned_ids, status='Available').update(status='Assigned')
+    for laptop in Laptop.objects.filter(id__in=assigned_ids, status='Available'):
+        # Active LaptopAssignment rows are authoritative. Direct legacy links
+        # are retained for compatibility and surfaced by the discrepancy report.
+        if active_assignment(laptop):
+            set_status(laptop, 'Assigned', staff, 'Synchronized active assignment')
 
 
 def get_or_create_student_person(student):
@@ -204,7 +229,7 @@ def get_or_create_student_person(student):
     )
 
 
-def get_or_create_student_assignment(student, laptop=None):
+def get_or_create_student_assignment(student, laptop=None, management_staff=None):
     laptop = laptop or student.laptop
     if not laptop:
         return None
@@ -221,17 +246,35 @@ def get_or_create_student_assignment(student, laptop=None):
         return assignment
 
     today = timezone.now().date()
-    return LaptopAssignment.objects.create(
-        person=person,
-        laptop=laptop,
-        issue_date=today,
-        expected_return_date=today,
-        academic_year=str(today.year),
-        assignment_status='Issued',
-    )
+    try:
+        return assign_laptop(
+            person=person,
+            laptop=laptop,
+            issue_date=today,
+            expected_return_date=today,
+            academic_year=str(today.year),
+            staff=management_staff,
+        )
+    except ValidationError:
+        # Legacy student links may predate their assignment row. Preserve the
+        # historical return workflow while still routing status through the
+        # guarded service.
+        if laptop.status != 'Assigned' or active_repairs(laptop).exists() or has_unresolved_damage(laptop):
+            raise
+        assignment = LaptopAssignment.objects.create(
+            person=person,
+            laptop=laptop,
+            issue_date=today,
+            expected_return_date=today,
+            academic_year=str(today.year),
+            assignment_status='Issued',
+        )
+        set_status(laptop, 'Assigned', management_staff, 'Restored legacy active assignment')
+        return assignment
 
 
-def apply_return_updates(laptop, assignment, condition, notes, cleaned_data, return_type='complete', replace=False):
+@transaction.atomic
+def apply_return_updates(laptop, assignment, condition, notes, cleaned_data, return_type='complete', replace=False, staff=None):
     today = timezone.now().date()
 
     laptop.brand = cleaned_data.get('brand', laptop.brand)
@@ -252,23 +295,20 @@ def apply_return_updates(laptop, assignment, condition, notes, cleaned_data, ret
     return_note = ' | '.join(note_parts)
     laptop.remark = return_note if not laptop.remark else f"{laptop.remark} || {return_note}"
 
+    laptop.save()
+
     if return_type == 'annual':
         # Annual return checks laptop but keeps the assignment active.
         base_date = assignment.expected_return_date or today
         if base_date < today:
             base_date = today
         assignment.expected_return_date = _add_one_year_safe(base_date)
-        laptop.status = 'Assigned'
+        set_status(laptop, 'Assigned', staff, 'Annual inspection preserved assignment')
         assignment.assignment_status = 'Issued'
         assignment.actual_return_date = None
+        assignment.save()
     else:
-        # Complete return releases the laptop back to inventory.
-        laptop.status = 'Available'
-        assignment.assignment_status = 'Returned'
-        assignment.actual_return_date = today
-
-    laptop.save()
-    assignment.save()
+        complete_return(laptop=laptop, assignment=assignment, condition=condition, staff=staff)
 
     return laptop
 
@@ -291,7 +331,7 @@ def home_view(request):
         return redirect('rental_system:login')
 
     refresh_overdue_assignments()
-    sync_laptop_assignment_statuses()
+    sync_laptop_assignment_statuses(current_staff)
 
     # Add the context data that dashboard_file.html expects
     from django.utils import timezone
@@ -305,10 +345,9 @@ def home_view(request):
     # Calculate dashboard statistics
     total_laptops = Laptop.objects.count()
     available_laptops = Laptop.objects.filter(status="Available").count()
-    repair_laptops = Laptop.objects.filter(
-        Q(status='In Repair') |
-        Q(id__in=RepairLog.objects.filter(repair_status__in=['Pending', 'Repairing']).values_list('laptop_id', flat=True))
-    ).distinct().count()
+    repair_laptops = RepairLog.objects.filter(
+        repair_status__in=['Pending', 'Repairing']
+    ).values('laptop_id').distinct().count()
     damage_laptops = Laptop.objects.filter(status='Damage').count()
     assigned_laptops = Laptop.objects.filter(status='Assigned').count()
     
@@ -333,7 +372,16 @@ def home_view(request):
     persons = Person.objects.filter(status='Active')[:50]
     
     # Get available laptops list for quick assign
-    available_laptops_list = Laptop.objects.filter(status='Available')[:50]
+    active_repair_laptop_ids = RepairLog.objects.filter(
+        repair_status__in=['Pending', 'Repairing']
+    ).values('laptop_id')
+    active_assignment_laptop_ids = LaptopAssignment.objects.filter(
+        assignment_status__in=ACTIVE_ASSIGNMENT_STATUSES,
+        actual_return_date__isnull=True,
+    ).values('laptop_id')
+    available_laptops_list = Laptop.objects.filter(status='Available').exclude(
+        id__in=active_repair_laptop_ids
+    ).exclude(id__in=active_assignment_laptop_ids)[:50]
     
     # Monthly data for charts (last 6 months)
     monthly_labels = []
@@ -371,6 +419,7 @@ def home_view(request):
         # Chart data
         'monthly_labels': monthly_labels,
         'monthly_counts': monthly_counts,
+        'inventory_discrepancies': inventory_discrepancies(),
     }
     
     # This renders dashboard_file.html which extends home.html
@@ -404,16 +453,14 @@ def quick_assign(request):
                 if not is_assignable:
                     raise ValueError(error_message)
 
-                LaptopAssignment.objects.create(
+                assign_laptop(
                     person=person,
                     laptop=laptop,
                     issue_date=issue_date_value,
                     expected_return_date=return_date_value,
                     academic_year=academic_year,
-                    assignment_status='Issued',
+                    staff=request.management_staff,
                 )
-                laptop.status = 'Assigned'
-                laptop.save(update_fields=['status'])
                 if person.person_type == 'Student':
                     Student.objects.filter(email=person.outlook_mail).update(
                         laptop=laptop,
@@ -778,10 +825,11 @@ def import_students_excel(request):
 
 ### SAL's Code for Laptop Management ##
 def inventory_list(request):
-    sync_laptop_assignment_statuses()
+    sync_laptop_assignment_statuses(request.management_staff)
     laptops = Laptop.objects.all()
 
     status = request.GET.get("status")
+    category = request.GET.get("category")
     search = request.GET.get("search", "").strip()
     selected_sort = request.GET.get("sort", "newest")
 
@@ -789,6 +837,9 @@ def inventory_list(request):
         laptops = laptops.filter(remark__icontains="Replace: Yes")
     elif status and status != "All":
         laptops = laptops.filter(status=status)
+
+    if category and category != 'All':
+        laptops = laptops.filter(source=category)
 
     if search:
         laptops = laptops.filter(
@@ -844,7 +895,15 @@ def inventory_list(request):
     total_laptops_filtered = laptops.count()
     laptops, laptops_pagination = _paginate(request, laptops)
     status_list = ["All", "Available", "Assigned", "In Repair", "Damage", "Replace"]
+    category_list = [
+        ('All', 'All'),
+        *Laptop.LAPTOP_CATEGORY_CHOICES,
+    ]
     available_laptops_count = Laptop.objects.filter(status='Available').count()
+    category_counts = {
+        value: Laptop.objects.filter(source=value).count()
+        for value, _label in Laptop.LAPTOP_CATEGORY_CHOICES
+    }
 
     return render(request, "inventory_list.html", {
         "laptops": laptops,
@@ -852,7 +911,10 @@ def inventory_list(request):
         "total_laptops_filtered": total_laptops_filtered,
         "form": LaptopForm(),
         "status_active": status or "All",
+        "category_active": category or "All",
         "status_list": status_list,
+        "category_list": category_list,
+        "category_counts": category_counts,
         "assigned_map": assigned_map,
         "search_query": search,
         "available_laptops_count": available_laptops_count,
@@ -861,6 +923,9 @@ def inventory_list(request):
 
 def laptop_create(request):
     if request.method == "POST":
+        if 'status' in request.POST and (request.POST.get('status') or '').strip():
+            messages.error(request, 'Laptop status is managed automatically.')
+            return redirect('rental_system:inventory_list')
         form = LaptopForm(request.POST)
         if form.is_valid():
             form.save()
@@ -873,9 +938,19 @@ def laptop_create(request):
 def laptop_update(request, pk):
     laptop = get_object_or_404(Laptop, pk=pk)
     if request.method == "POST":
+        submitted_status = (request.POST.get('status') or '').strip()
+        if submitted_status and submitted_status != laptop.status:
+            messages.error(request, 'Laptop status is managed automatically.')
+            return redirect('rental_system:inventory_list')
+        submitted_for_whom = (request.POST.get('for_whom') or '').strip()
+        if submitted_for_whom and submitted_for_whom != laptop.for_whom and get_active_assignment_for_laptop(laptop):
+            messages.error(request, 'Intended For cannot change while the laptop is actively assigned.')
+            return redirect('rental_system:inventory_list')
         form = LaptopForm(request.POST, instance=laptop)
         if form.is_valid():
+            old_category = laptop.source
             form.save()
+            audit_category_change(request.management_staff, laptop, old_category, laptop.source)
             messages.success(request, 'Laptop updated successfully!')
         else:
             messages.error(request, 'Could not update laptop. Please check the form values.')
@@ -900,7 +975,7 @@ def import_laptops_excel(request):
         messages.error(request, "Could not read the Excel file.")
         return redirect('rental_system:inventory_list')
 
-    required_columns = LAPTOP_IMPORT_COLUMNS
+    required_columns = LAPTOP_IMPORT_REQUIRED_COLUMNS
 
     missing_columns = [col for col in required_columns if col not in df.columns]
     if missing_columns:
@@ -931,22 +1006,68 @@ def import_laptops_excel(request):
             'storage': str(row.get('storage', '')).strip(),
             'remark': str(row.get('remark', '')).strip(),
         }
+        imported_category = _excel_text(row.get('source', ''))
+        if imported_category and imported_category not in dict(Laptop.LAPTOP_CATEGORY_CHOICES):
+            raise ValidationError(
+                f'Invalid Laptop Category for {serial_number}. Use University-Owned or Student Replacement.'
+            )
+        replacement_student_id = _excel_text(row.get('replacement_student_id', ''))
+        replacement_details = _excel_text(row.get('replacement_details', ''))
+        if imported_category == 'Student Replacement' and not replacement_student_id:
+            raise ValidationError(f'Replacement student ID is required for {serial_number}.')
+        if imported_category == 'Student Replacement' and not replacement_details:
+            raise ValidationError(f'Replacement information is required for {serial_number}.')
         laptop, created = Laptop.objects.get_or_create(
             SerialNumber=serial_number,
             defaults={
                 **imported_values,
                 'for_whom': 'Student',
                 'status': 'Available',
+                'source': imported_category or 'University-Owned',
+                'replacement_student_id': replacement_student_id,
+                'replacement_details': replacement_details,
             }
         )
         if not created:
             for field, value in imported_values.items():
                 setattr(laptop, field, value)
-            laptop.save(update_fields=list(imported_values))
+            if imported_category:
+                old_category = laptop.source
+                laptop.source = imported_category
+                laptop.replacement_student_id = replacement_student_id
+                laptop.replacement_details = replacement_details
+                audit_category_change(request.management_staff, laptop, old_category, imported_category)
+                update_fields = list(imported_values) + [
+                    'source', 'replacement_student_id', 'replacement_details'
+                ]
+            else:
+                update_fields = list(imported_values)
+            laptop.save(update_fields=update_fields)
         imported_count += 1
 
     messages.success(request, f"{imported_count} laptops imported successfully!")
     return redirect('rental_system:inventory_list')
+
+
+def export_laptops_excel(request):
+    workbook = Workbook()
+    worksheet = workbook.active
+    worksheet.title = 'Laptops'
+    worksheet.append(LAPTOP_IMPORT_COLUMNS)
+    for laptop in Laptop.objects.order_by('SerialNumber'):
+        worksheet.append([
+            laptop.SerialNumber, laptop.name, laptop.brand, laptop.processor_gen,
+            laptop.ram, laptop.storage, laptop.source or '',
+            laptop.replacement_student_id, laptop.replacement_details, laptop.remark,
+        ])
+    output = BytesIO()
+    workbook.save(output)
+    response = HttpResponse(
+        output.getvalue(),
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    )
+    response['Content-Disposition'] = 'attachment; filename="laptop_inventory.xlsx"'
+    return response
 
 
 LEGACY_ASSIGNMENT_COLUMNS = [
@@ -1316,9 +1437,7 @@ def import_legacy_assignments_excel(request):
             if student.laptop_id != laptop.pk:
                 student.laptop = laptop
                 student.save(update_fields=['laptop'])
-            if laptop.status != 'Assigned':
-                laptop.status = 'Assigned'
-                laptop.save(update_fields=['status'])
+            set_status(laptop, 'Assigned', request.management_staff, 'Imported active assignment')
 
     for roll_key, rental_status in imported_statuses.items():
         student = student_map[roll_key]
@@ -1400,10 +1519,17 @@ def assigned_laptop_list(request):
                     student.laptop = laptop
                     student.rental_status = 'Assigned'
                     student.save(update_fields=['laptop', 'rental_status'])
-                    assignment = get_or_create_student_assignment(student, laptop)
+                    person = get_or_create_student_person(student)
+                    assignment = assign_laptop(
+                        person=person,
+                        laptop=laptop,
+                        issue_date=timezone.now().date(),
+                        expected_return_date=timezone.now().date(),
+                        academic_year=str(timezone.now().year),
+                        staff=request.management_staff,
+                    )
                     laptop.for_whom = 'Student'
-                    laptop.status = 'Assigned'
-                    laptop.save(update_fields=['for_whom', 'status'])
+                    laptop.save(update_fields=['for_whom'])
                     AuditLog.objects.create(
                         staff=request.management_staff,
                         action_type='Create',
@@ -1427,17 +1553,16 @@ def assigned_laptop_list(request):
             if active_assignment:
                 messages.error(request, f'{staff.person.name} already has a laptop assigned.')
             else:
-                assignment = LaptopAssignment.objects.create(
+                assignment = assign_laptop(
                     person=staff.person,
                     laptop=laptop,
                     issue_date=timezone.now().date(),
                     expected_return_date=timezone.now().date(),
                     academic_year=str(timezone.now().year),
-                    assignment_status='Issued',
+                    staff=request.management_staff,
                 )
                 laptop.for_whom = 'Staff'
-                laptop.status = 'Assigned'
-                laptop.save(update_fields=['for_whom', 'status'])
+                laptop.save(update_fields=['for_whom'])
                 AuditLog.objects.create(
                     staff=request.management_staff,
                     action_type='Create',
@@ -1669,6 +1794,7 @@ def return_laptop_list(request):
                 cleaned_data,
                 return_type=return_type,
                 replace=replace,
+                staff=request.management_staff,
             )
         else:
             student = get_object_or_404(Student.objects.select_related('laptop'), id=owner_id)
@@ -1676,7 +1802,9 @@ def return_laptop_list(request):
                 messages.error(request, 'This student does not currently have a laptop assigned.')
                 return redirect('rental_system:return_laptop_list')
 
-            active_assignment = get_or_create_student_assignment(student, student.laptop)
+            active_assignment = get_or_create_student_assignment(
+                student, student.laptop, request.management_staff
+            )
             laptop = student.laptop
             if return_type == 'complete':
                 student.laptop = None
@@ -1690,6 +1818,7 @@ def return_laptop_list(request):
                 cleaned_data,
                 return_type=return_type,
                 replace=replace,
+                staff=request.management_staff,
             )
 
         if return_type == 'annual':
@@ -1745,12 +1874,13 @@ def issue_list(request):
     active_issues = repair_logs.exclude(repair_status='Completed')
     available_for_issue = Laptop.objects.order_by('SerialNumber')
     available_laptops_count = Laptop.objects.filter(status='Available').count()
+    selected_laptop_id = str(request.GET.get('laptop_id') or '')
 
     if request.method == 'POST':
         action = request.POST.get('action', 'create')
 
         if action == 'create':
-            laptop = get_object_or_404(Laptop, id=request.POST.get('laptop_id'))
+            laptop = get_object_or_404(Laptop.objects.select_for_update(), id=request.POST.get('laptop_id'))
             issue_type = request.POST.get('issue_type', 'General')
             description = request.POST.get('issue_description', '').strip()
             reported_by = request.POST.get('reported_by', '').strip()
@@ -1760,6 +1890,11 @@ def issue_list(request):
                 messages.error(request, 'Please fill in the issue description and reporter name.')
                 return redirect('rental_system:issue_list')
 
+            if active_repairs(laptop).exists():
+                messages.error(request, f'{laptop.SerialNumber} already has an active repair workflow.')
+                return redirect('rental_system:issue_list')
+
+            start_repair(laptop=laptop, staff=request.management_staff)
             RepairLog.objects.create(
                 laptop=laptop,
                 repair_date=timezone.now().date(),
@@ -1769,8 +1904,13 @@ def issue_list(request):
                 shop_address='Pending',
                 repair_status='Repairing',
             )
-            laptop.status = 'In Repair'
-            laptop.save()
+            AuditLog.objects.create(
+                staff=request.management_staff,
+                action_type='Insert',
+                target_table='repair_log',
+                record_id=str(laptop.pk),
+                description=f'Reported issue and started repair workflow for {laptop.SerialNumber}',
+            )
             messages.success(request, f'Issue reported for {laptop.SerialNumber}.')
             return redirect('rental_system:issue_list')
 
@@ -1778,14 +1918,13 @@ def issue_list(request):
         if action == 'repairing':
             issue.repair_status = 'Repairing'
             issue.save()
-            issue.laptop.status = 'In Repair'
-            issue.laptop.save()
+            if active_assignment(issue.laptop):
+                set_status(issue.laptop, 'Assigned', request.management_staff, 'Started repair; active assignment preserved')
+            else:
+                set_status(issue.laptop, 'In Repair', request.management_staff, 'Started laptop repair')
             messages.success(request, f'{issue.laptop.SerialNumber} is now under repair.')
         elif action == 'complete':
-            issue.repair_status = 'Completed'
-            issue.save()
-            issue.laptop.status = 'Available'
-            issue.laptop.save()
+            complete_repair(repair_log=issue, staff=request.management_staff)
             messages.success(request, f'Issue for {issue.laptop.SerialNumber} marked as completed.')
         return redirect('rental_system:issue_list')
 
@@ -1794,9 +1933,15 @@ def issue_list(request):
         'issues': issues,
         'issues_pagination': issues_pagination,
         'active_issues_count': active_issues.count(),
-        'repairing_count': repair_logs.filter(repair_status='Repairing').count(),
+        # This is a distinct-laptop metric. A laptop with a Pending workflow
+        # is also under repair even before physical repair starts.
+        'repairing_count': repair_logs.filter(
+            repair_status__in=ACTIVE_REPAIR_STATUSES
+        ).values('laptop_id').distinct().count(),
         'available_for_issue': available_for_issue,
         'available_laptops_count': available_laptops_count,
+        'selected_laptop_id': selected_laptop_id,
+        'inventory_discrepancies': inventory_discrepancies(),
     })
 
 # Add these new view functions to your views.py
@@ -2124,7 +2269,7 @@ def is_valid_miit_email(email):
     return email.endswith("@miit.edu.mm") and len(email) > len("@miit.edu.mm")
 
 
-def _sync_staff_laptop_assignment(staff, selected_laptop_id):
+def _sync_staff_laptop_assignment(staff, selected_laptop_id, management_staff=None):
     """
     Keep / change / remove the current active laptop assignment for a staff member.
     Returns the current active laptop object or None.
@@ -2150,9 +2295,9 @@ def _sync_staff_laptop_assignment(staff, selected_laptop_id):
         active_assignment.actual_return_date = today
         active_assignment.save()
 
-        current_laptop.status = 'Available'
         current_laptop.for_whom = 'Student'
         current_laptop.save()
+        reconcile_status(current_laptop, management_staff, 'Released staff laptop assignment')
 
     # No new laptop selected
     if not selected_laptop_id:
@@ -2165,18 +2310,16 @@ def _sync_staff_laptop_assignment(staff, selected_laptop_id):
     if not is_assignable:
         raise ValueError(error_message)
 
-    LaptopAssignment.objects.create(
+    assign_laptop(
         person=staff.person,
         laptop=new_laptop,
         issue_date=today,
         expected_return_date=today,
         academic_year=str(today.year),
-        assignment_status='Issued',
+        staff=management_staff,
     )
-
-    new_laptop.status = 'Assigned'
     new_laptop.for_whom = 'Staff'
-    new_laptop.save()
+    new_laptop.save(update_fields=['for_whom'])
 
     return new_laptop
 
@@ -2289,7 +2432,7 @@ def staff_create(request):
                 office_section=office_section,
             )
 
-            _sync_staff_laptop_assignment(staff, selected_laptop_id)
+            _sync_staff_laptop_assignment(staff, selected_laptop_id, request.management_staff)
 
             current_staff_id = request.session.get('staff_id')
             if current_staff_id:
@@ -2399,7 +2542,7 @@ def staff_update(request, pk):
             staff.office_section = new_office_section
             staff.save()
 
-            _sync_staff_laptop_assignment(staff, selected_laptop_id)
+            _sync_staff_laptop_assignment(staff, selected_laptop_id, request.management_staff)
 
             current_staff_id = request.session.get('staff_id')
             if current_staff_id:

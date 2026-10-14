@@ -1,9 +1,11 @@
 from django.contrib import admin
+from django.core.exceptions import ValidationError
 from .models import (
     ManagementStaff, Person, Student, Staff, Laptop, 
     LaptopAssignment, DamageReport, RepairLog, 
     LaptopReplacement, Blacklist, AuditLog, SystemPreference
 )
+from .services.inventory import audit_category_change, set_status
 
 # -----------------------------
 # User & Role Management
@@ -55,10 +57,37 @@ class StaffAdmin(admin.ModelAdmin):
 
 @admin.register(Laptop)
 class LaptopAdmin(admin.ModelAdmin):
-    list_display = ('SerialNumber', 'brand', 'name', 'processor_gen', 'for_whom', 'status')
-    list_filter = ('status', 'brand', 'for_whom')
+    list_display = ('SerialNumber', 'brand', 'name', 'source', 'for_whom', 'status')
+    list_filter = ('source', 'status', 'brand', 'for_whom')
     search_fields = ('SerialNumber', 'name', 'brand')
-    list_editable = ('status',) # Allows changing status directly from the list view
+
+    def save_model(self, request, obj, form, change):
+        previous = Laptop.objects.get(pk=obj.pk) if change else None
+        if obj.source == 'Student Replacement' and (
+            not obj.replacement_student_id or not obj.replacement_details
+        ):
+            raise ValidationError('Student Replacement requires student ID and replacement information.')
+        if change and 'status' in form.changed_data:
+            requested_status = obj.status
+            obj.status = previous.status
+            administrator = getattr(request, 'management_staff', None)
+            if administrator is None:
+                administrator = ManagementStaff.objects.filter(auth_user=request.user).first()
+            set_status(
+                obj,
+                requested_status,
+                administrator,
+                'Administrator inventory status correction',
+            )
+        if change and previous and 'source' in form.changed_data:
+            administrator = getattr(request, 'management_staff', None)
+            if administrator is None:
+                administrator = ManagementStaff.objects.filter(auth_user=request.user).first()
+            audit_category_change(
+                administrator, obj,
+                previous.source, obj.source,
+            )
+        super().save_model(request, obj, form, change)
 
 # -----------------------------
 # Assignments & Logs

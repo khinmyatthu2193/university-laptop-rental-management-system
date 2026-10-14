@@ -3,12 +3,14 @@ from io import BytesIO
 
 from django.contrib.auth.models import User
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 from django.test import TestCase
 from django.urls import reverse
 from openpyxl import Workbook, load_workbook
 
-from .models import AuditLog, Laptop, LaptopAssignment, ManagementStaff, Person, RepairLog, Staff, Student, SystemPreference
+from .models import AuditLog, DamageReport, Laptop, LaptopAssignment, ManagementStaff, Person, RepairLog, Staff, Student, SystemPreference
+from .services.inventory import assign_laptop, complete_repair, complete_return, set_status, start_repair
 
 
 class PhaseOneSecurityTests(TestCase):
@@ -247,6 +249,105 @@ class AssignmentIntegrityTests(TestCase):
             self.assignment(expected_return_date=today - timedelta(days=1))
 
 
+class InventoryLifecycleServiceTests(TestCase):
+    def setUp(self):
+        user = User.objects.create_user(username='lifecycle', password='A-strong-local-password-2026')
+        self.staff = ManagementStaff.objects.create(
+            auth_user=user, name='Lifecycle Operator', username='lifecycle',
+            outlook_mail='lifecycle@miit.edu.mm', position='IT Support',
+            department='ITSM', role='Admin', permissions=['inventory.view', 'inventory.manage', 'issues.manage'],
+        )
+        self.client.force_login(user)
+        self.person = Person.objects.create(
+            name='Lifecycle User', phone_number='09123456789',
+            outlook_mail='lifecycle-user@miit.edu.mm', person_type='Student',
+        )
+        self.laptop = Laptop.objects.create(
+            SerialNumber='LIFECYCLE-001', name='Test Model', brand='Test Brand',
+            processor_gen='Test CPU', ram=8, storage='256GB SSD', for_whom='Student',
+        )
+
+    def test_assignment_and_complete_return_sync_status_and_audit(self):
+        assignment = assign_laptop(
+            person=self.person, laptop=self.laptop, issue_date=date.today(),
+            expected_return_date=date.today() + timedelta(days=14),
+            academic_year='2026', staff=self.staff,
+        )
+        self.laptop.refresh_from_db()
+        self.assertEqual(self.laptop.status, 'Assigned')
+        complete_return(laptop=self.laptop, assignment=assignment, condition='Excellent', staff=self.staff)
+        self.laptop.refresh_from_db()
+        self.assertEqual(self.laptop.status, 'Available')
+        self.assertTrue(AuditLog.objects.filter(target_table='laptop').exists())
+
+    def test_annual_inspection_keeps_active_assignment(self):
+        assignment = assign_laptop(
+            person=self.person, laptop=self.laptop, issue_date=date.today(),
+            expected_return_date=date.today() + timedelta(days=14),
+            academic_year='2026', staff=self.staff,
+        )
+        assignment.expected_return_date = date.today()
+        assignment.save(update_fields=['expected_return_date'])
+        set_status(self.laptop, 'Assigned', self.staff, 'Annual inspection preserved assignment')
+        self.assertEqual(self.laptop.status, 'Assigned')
+
+    def test_repair_progression_and_unresolved_damage_block_availability(self):
+        start_repair(laptop=self.laptop, staff=self.staff)
+        repair = RepairLog.objects.create(
+            laptop=self.laptop, repair_date=date.today(), issue_description='Broken hinge',
+            repair_shop='In-house', shop_address='MIIT', repair_status='Repairing',
+        )
+        self.laptop.refresh_from_db()
+        self.assertEqual(self.laptop.status, 'In Repair')
+        complete_repair(repair_log=repair, staff=self.staff)
+        self.laptop.refresh_from_db()
+        self.assertEqual(self.laptop.status, 'Available')
+
+        damage_assignment = LaptopAssignment.objects.create(
+            person=self.person, laptop=self.laptop, issue_date=date.today(),
+            expected_return_date=date.today(), academic_year='2026', assignment_status='Issued',
+        )
+        DamageReport.objects.create(
+            laptop=self.laptop, assignment=damage_assignment, damage_description='Cracked case',
+            report_date=date.today(), replacement_status='No',
+        )
+        complete_return(laptop=self.laptop, assignment=damage_assignment, condition='Excellent', staff=self.staff)
+        self.laptop.refresh_from_db()
+        self.assertEqual(self.laptop.status, 'Damage')
+
+    def test_duplicate_assignment_rolls_back_without_status_change(self):
+        assign_laptop(
+            person=self.person, laptop=self.laptop, issue_date=date.today(),
+            expected_return_date=date.today(), academic_year='2026', staff=self.staff,
+        )
+        second_person = Person.objects.create(
+            name='Second User', phone_number='09111111111',
+            outlook_mail='second@miit.edu.mm', person_type='Student',
+        )
+        with self.assertRaises(ValidationError):
+            assign_laptop(
+                person=second_person, laptop=self.laptop, issue_date=date.today(),
+                expected_return_date=date.today(), academic_year='2026', staff=self.staff,
+            )
+        self.assertEqual(LaptopAssignment.objects.filter(laptop=self.laptop).count(), 1)
+
+    def test_inventory_post_cannot_change_status(self):
+        response = self.client.post(reverse('rental_system:laptop_update', args=[self.laptop.pk]), {
+            'SerialNumber': self.laptop.SerialNumber,
+            'brand': self.laptop.brand,
+            'name': self.laptop.name,
+            'processor_gen': self.laptop.processor_gen,
+            'ram': self.laptop.ram,
+            'storage': self.laptop.storage,
+            'for_whom': self.laptop.for_whom,
+            'remark': '',
+            'status': 'In Repair',
+        })
+        self.assertRedirects(response, reverse('rental_system:inventory_list'))
+        self.laptop.refresh_from_db()
+        self.assertEqual(self.laptop.status, 'Available')
+
+
 class StaffAssignmentViewTests(TestCase):
     def setUp(self):
         user = User.objects.create_user(
@@ -353,6 +454,18 @@ class IssueReportViewTests(TestCase):
         self.laptop.refresh_from_db()
         self.assertEqual(self.laptop.status, 'In Repair')
 
+    def test_issue_metric_counts_distinct_laptops_with_active_workflows(self):
+        RepairLog.objects.create(
+            laptop=self.laptop, repair_date=date.today(), issue_description='Pending follow-up',
+            repair_shop='In-house', shop_address='MIIT', repair_status='Pending',
+        )
+        RepairLog.objects.create(
+            laptop=self.laptop, repair_date=date.today(), issue_description='Repair started',
+            repair_shop='In-house', shop_address='MIIT', repair_status='Repairing',
+        )
+        response = self.client.get(reverse('rental_system:issue_list'))
+        self.assertContains(response, '<div class="card-value">1</div>', html=True)
+
 
 class LaptopImportTests(TestCase):
     password = 'A-strong-local-password-2026'
@@ -411,6 +524,23 @@ class LaptopImportTests(TestCase):
         )
         laptop = Laptop.objects.get(SerialNumber='NEW-001')
         self.assertEqual(laptop.for_whom, 'Student')
+        self.assertEqual(laptop.status, 'Available')
+        self.assertEqual(laptop.source, 'University-Owned')
+
+    def test_import_accepts_student_replacement_category_and_details(self):
+        headers = [
+            'SerialNumber', 'name', 'brand', 'processor_gen', 'ram', 'storage',
+            'source', 'replacement_student_id', 'replacement_details', 'remark',
+        ]
+        upload = self.workbook_upload(headers, [[
+            'REPLACEMENT-001', 'ThinkPad', 'Lenovo', '12th Gen', 16,
+            '512GB SSD', 'Student Replacement', '2025-MIIT-CSE-001',
+            'Replacement for damaged student device', 'Accepted replacement',
+        ]])
+        response = self.client.post(reverse('rental_system:import_laptops'), {'file': upload})
+        self.assertRedirects(response, reverse('rental_system:inventory_list'), fetch_redirect_response=False)
+        laptop = Laptop.objects.get(SerialNumber='REPLACEMENT-001')
+        self.assertEqual(laptop.source, 'Student Replacement')
         self.assertEqual(laptop.status, 'Available')
 
     def test_import_preserves_existing_for_whom_and_status(self):
@@ -473,7 +603,8 @@ class ImportTemplateTests(TestCase):
             ],
             'laptop_import_template': [
                 'SerialNumber', 'name', 'brand', 'processor_gen',
-                'ram', 'storage', 'remark',
+                'ram', 'storage', 'source', 'replacement_student_id',
+                'replacement_details', 'remark',
             ],
         }
 
