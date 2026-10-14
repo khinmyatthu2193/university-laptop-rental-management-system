@@ -1,0 +1,562 @@
+:root {
+  --uk-primary: #102477;
+  --uk-primary-hover: #0c1b5c;
+  --uk-soft-blue: #eaf3ff;
+  --uk-gold: #e5b839;
+  --uk-page: #f5f7fb;
+  --uk-surface: #ffffff;
+  --uk-border: #dce4ef;
+  --uk-text: #14213d;
+  --uk-muted: #64748b;
+  --uk-success: #18794e;
+  --uk-danger: #b42318;
+  --uk-radius: 8px;
+  --uk-focus: 0 0 0 3px rgba(16, 36, 119, 0.14);
+}
+
+/* Shared controls */
+.form-control,
+.form-select,
+input[type='date'],
+input[type='file'] {
+  min-height: 44px;
+  border: 1px solid var(--uk-border);
+  border-radius: var(--uk-radius);
+  background: var(--uk-surface);
+  color: var(--uk-text);
+  padding: 0.6rem 0.75rem;
+}
+
+textarea.form-control {
+  min-height: 110px;
+  line-height: 1.45;
+  resize: vertical;
+}
+
+.form-control::placeholder {
+  color: #94a3b8;
+}
+
+.form-control:focus,
+.form-select:focus,
+input[type='date']:focus,
+input[type='file']:focus {
+  border-color: var(--uk-primary);
+  box-shadow: var(--uk-focus);
+  outline: 0;
+}
+
+.form-label,
+label.form-label {
+  margin-bottom: 0.4rem;
+  color: var(--uk-text);
+  font-size: 0.86rem;
+  font-weight: 600;
+}
+
+.form-text,
+small.form-text {
+  color: var(--uk-muted);
+}
+
+.inventory-readonly-status {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--uk-border);
+  border-radius: var(--uk-radius);
+  background: var(--uk-page);
+}
+
+.inventory-readonly-status small {
+  color: var(--uk-muted);
+  font-size: 0.75rem;
+}
+
+/* Shared buttons */
+.btn {
+  min-height: 42px;
+  border-radius: var(--uk-radius);
+  font-weight: 600;
+  transition: background-color 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
+}
+
+.btn-sm {
+  min-height: 35px;
+  padding: 0.4rem 0.7rem;
+}
+
+.btn-primary {
+  border-color: var(--uk-primary);
+  background: var(--uk-primary);
+  color: #fff;
+}
+
+.btn-primary:hover,
+.btn-primary:focus-visible {
+  border-color: var(--uk-primary-hover);
+  background: var(--uk-primary-hover);
+  color: #fff;
+  box-shadow: var(--uk-focus);
+}
+
+.btn-outline-primary,
+.btn-outline-secondary,
+.btn-light {
+  border-color: var(--uk-border);
+  background: var(--uk-surface);
+  color: var(--uk-primary);
+}
+
+.btn-outline-primary:hover,
+.btn-outline-primary:focus-visible,
+.btn-outline-secondary:hover,
+.btn-outline-secondary:focus-visible,
+.btn-light:hover,
+.btn-light:focus-visible {
+  border-color: var(--uk-primary);
+  background: var(--uk-soft-blue);
+  color: var(--uk-primary);
+  box-shadow: var(--uk-focus);
+}
+
+.btn-success {
+  border-color: var(--uk-success);
+  background: var(--uk-success);
+}
+
+.btn-danger,
+.btn-destructive {
+  border-color: var(--uk-danger);
+  background: var(--uk-danger);
+}
+
+.btn:disabled,
+.btn.disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* Shared surfaces, tables, and badges */
+.data-section,
+.card,
+.table-responsive {
+  border-color: var(--uk-border);
+  box-shadow: 0 2px 8px rgba(20, 33, 61, 0.05);
+}
+
+.data-table thead th,
+.table thead th {
+  color: var(--uk-text);
+  background: var(--uk-page);
+  border-bottom-color: var(--uk-border);
+  font-weight: 600;
+}
+
+.data-table tbody tr,
+.table tbody tr {
+  border-bottom-color: var(--uk-border);
+}
+
+.badge {
+  border-radius: 6px;
+  font-weight: 600;
+}
+
+/* Bootstrap modal family: sticky actions, scrolling body, no gradients. */
+.modal-content {
+  overflow: hidden;
+  border: 1px solid var(--uk-border);
+  border-radius: 10px;
+  background: var(--uk-surface);
+  box-shadow: 0 18px 45px rgba(20, 33, 61, 0.16);
+}
+
+.modal-header {
+  flex: 0 0 auto;
+  border-bottom: 1px solid var(--uk-gold);
+  background: var(--uk-soft-blue);
+  color: var(--uk-primary);
+  padding: 1rem 1.25rem;
+}
+
+.modal-title {
+  color: var(--uk-primary);
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.modal-header .btn-close {
+  border-radius: 6px;
+  opacity: 0.75;
+}
+
+.modal-header .btn-close:hover,
+.modal-header .btn-close:focus-visible {
+  background-color: rgba(16, 36, 119, 0.08);
+  opacity: 1;
+  box-shadow: var(--uk-focus);
+}
+
+.modal-body {
+  background: var(--uk-surface);
+  padding: 1.25rem;
+}
+
+.modal-footer {
+  flex: 0 0 auto;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  border-top: 1px solid var(--uk-border);
+  background: var(--uk-surface);
+  padding: 0.8rem 1.25rem;
+}
+
+.modal-dialog-scrollable .modal-content {
+  max-height: 90vh;
+}
+
+@media (max-width: 768px) {
+  .modal-dialog {
+    margin: 0.75rem;
+  }
+
+  .modal-body {
+    padding: 1rem;
+  }
+
+  .modal-footer {
+    padding: 0.75rem 1rem;
+  }
+}
+
+/* Shared visual treatment for UniKit's legacy popup implementations. */
+.device-popup-overlay,
+.record-popup-overlay,
+.staff-popup-overlay,
+.legacy-import-overlay,
+.dashboard-modal-overlay {
+  background: rgba(20, 33, 61, 0.48);
+  backdrop-filter: none;
+}
+
+.device-popup-panel,
+.record-popup-panel,
+.staff-popup-panel,
+.legacy-import-dialog,
+.dashboard-modal,
+.return-modal-content,
+.issue-report-modal-content {
+  overflow: hidden;
+  border: 1px solid var(--uk-border);
+  border-radius: 10px;
+  background: var(--uk-surface);
+  box-shadow: 0 18px 45px rgba(20, 33, 61, 0.16);
+}
+
+.device-popup-panel form,
+.record-popup-panel form,
+.staff-popup-panel form,
+.legacy-import-dialog form,
+.dashboard-modal form,
+.return-modal-content form,
+.issue-report-modal-content form {
+  min-height: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.device-popup-header,
+.record-popup-header,
+.staff-popup-header,
+.legacy-import-header,
+.legacy-import-dialog .modal-header,
+.dashboard-modal .modal-header,
+.return-modal-header,
+.issue-report-modal-header {
+  flex: 0 0 auto;
+  border-bottom: 1px solid var(--uk-gold);
+  border-radius: 0;
+  background: var(--uk-soft-blue);
+  color: var(--uk-primary);
+  padding: 1rem 1.25rem;
+}
+
+.device-popup-header h5,
+.record-popup-header h5,
+.staff-popup-header h5,
+.legacy-import-header h3,
+.legacy-import-dialog h2,
+.dashboard-modal .modal-title,
+.return-modal-header .modal-title,
+.issue-report-modal-header .modal-title {
+  color: var(--uk-primary);
+  font-weight: 700;
+}
+
+.device-popup-close,
+.record-popup-close,
+.staff-popup-close,
+.legacy-import-close,
+.dashboard-modal .modal-close-button {
+  color: var(--uk-primary);
+  border-radius: 6px;
+  opacity: 0.75;
+}
+
+.device-popup-close:hover,
+.device-popup-close:focus-visible,
+.record-popup-close:hover,
+.record-popup-close:focus-visible,
+.staff-popup-close:hover,
+.staff-popup-close:focus-visible,
+.legacy-import-close:hover,
+.legacy-import-close:focus-visible,
+.dashboard-modal .modal-close-button:hover,
+.dashboard-modal .modal-close-button:focus-visible {
+  background: rgba(16, 36, 119, 0.08);
+  color: var(--uk-primary);
+  opacity: 1;
+  outline: 0;
+  box-shadow: var(--uk-focus);
+}
+
+.device-popup-body,
+.record-popup-body,
+.staff-popup-body,
+.legacy-import-body,
+.legacy-import-dialog .modal-body,
+.dashboard-modal .modal-body,
+.return-modal-body,
+.issue-report-modal-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  background: var(--uk-surface);
+  padding: 1.25rem;
+}
+
+.device-popup-footer,
+.record-popup-footer,
+.staff-popup-footer,
+.legacy-import-footer,
+.legacy-import-dialog .modal-footer,
+.dashboard-modal .modal-footer,
+.return-modal-footer,
+.issue-report-modal-footer,
+.custom-offcanvas-footer {
+  flex: 0 0 auto;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  border-top: 1px solid var(--uk-border);
+  border-radius: 0;
+  background: var(--uk-surface);
+  padding: 0.8rem 1.25rem;
+}
+
+.device-popup-panel input,
+.device-popup-panel select,
+.device-popup-panel textarea,
+.record-popup-panel input,
+.record-popup-panel select,
+.record-popup-panel textarea,
+.staff-popup-panel input,
+.staff-popup-panel select,
+.staff-popup-panel textarea,
+.legacy-import-dialog .form-control,
+.legacy-import-dialog .form-select,
+.dashboard-modal .form-control,
+.dashboard-modal .form-select,
+.return-modal-body .form-control,
+.return-modal-body .form-select,
+.return-modal-body textarea {
+  min-height: 44px;
+  border: 1px solid var(--uk-border);
+  border-radius: var(--uk-radius);
+  background: #fff;
+  color: var(--uk-text);
+  padding: 0.6rem 0.75rem;
+}
+
+.device-popup-panel textarea,
+.record-popup-panel textarea,
+.staff-popup-panel textarea,
+.legacy-import-body textarea,
+.return-modal-body textarea {
+  min-height: 110px;
+  resize: vertical;
+}
+
+.device-popup-panel input:focus,
+.device-popup-panel select:focus,
+.device-popup-panel textarea:focus,
+.record-popup-panel input:focus,
+.record-popup-panel select:focus,
+.record-popup-panel textarea:focus,
+.staff-popup-panel input:focus,
+.staff-popup-panel select:focus,
+.staff-popup-panel textarea:focus,
+.legacy-import-dialog .form-control:focus,
+.legacy-import-dialog .form-select:focus,
+.dashboard-modal .form-control:focus,
+.dashboard-modal .form-select:focus,
+.return-modal-body .form-control:focus,
+.return-modal-body .form-select:focus,
+.return-modal-body textarea:focus {
+  border-color: var(--uk-primary);
+  box-shadow: var(--uk-focus);
+  outline: 0;
+}
+
+.custom-offcanvas,
+.custom-offcanvas .offcanvas-header,
+.custom-offcanvas .custom-offcanvas-header,
+.custom-offcanvas .custom-offcanvas-footer {
+  border-color: var(--uk-border);
+  background: var(--uk-surface);
+}
+
+.custom-offcanvas .custom-offcanvas-header {
+  border-bottom: 1px solid var(--uk-gold);
+  background: var(--uk-soft-blue);
+}
+
+.custom-offcanvas .custom-offcanvas-body {
+  background: var(--uk-surface);
+}
+
+/* Dashboard quick-assign uses a bespoke overlay but follows the same shell. */
+.dashboard-page .dashboard-modal {
+  width: min(760px, calc(100vw - 1.2rem));
+  max-height: 90vh;
+  overflow: hidden;
+  border-color: var(--uk-border);
+  border-radius: 10px;
+  box-shadow: 0 18px 45px rgba(20, 33, 61, 0.16);
+}
+
+.dashboard-page .dashboard-modal .modal-header {
+  border-bottom: 1px solid var(--uk-gold);
+  background: var(--uk-soft-blue);
+  padding: 1rem 1.25rem;
+}
+
+.dashboard-page .dashboard-modal .modal-title {
+  color: var(--uk-primary);
+}
+
+.dashboard-page .dashboard-modal .modal-body {
+  max-height: calc(90vh - 132px);
+  overflow-y: auto;
+  background: var(--uk-surface);
+  padding: 1.25rem;
+}
+
+.dashboard-page .dashboard-modal .modal-footer {
+  border-top: 1px solid var(--uk-border);
+  background: var(--uk-surface);
+  padding: 0.8rem 1.25rem;
+}
+
+/* Global confirmation and notification dialogs. */
+.confirmation-dialog,
+.notification-dialog {
+  max-width: min(440px, calc(100vw - 1.5rem));
+  padding: 0;
+  border: 1px solid var(--uk-border);
+  border-radius: 10px;
+  background: var(--uk-surface);
+  box-shadow: 0 18px 45px rgba(20, 33, 61, 0.16);
+}
+
+.confirmation-dialog::backdrop,
+.notification-dialog::backdrop {
+  background: rgba(20, 33, 61, 0.48);
+}
+
+.confirmation-dialog-content,
+.notification-dialog-content {
+  overflow: hidden;
+  background: var(--uk-surface);
+}
+
+.confirmation-dialog-title,
+.notification-heading {
+  margin: 0;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--uk-gold);
+  background: var(--uk-soft-blue);
+  color: var(--uk-primary);
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.confirmation-dialog-description,
+.notification-list {
+  margin: 0;
+  padding: 1.25rem;
+  color: var(--uk-text);
+}
+
+.confirmation-dialog-actions,
+.notification-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  padding: 0.8rem 1.25rem;
+  border-top: 1px solid var(--uk-border);
+  background: var(--uk-surface);
+}
+
+.laptop-category-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1rem;
+  padding: 0.65rem 0.8rem;
+  border: 1px solid var(--uk-border);
+  border-radius: 8px;
+  background: var(--uk-surface);
+}
+
+.laptop-category-options label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--uk-text);
+  font-size: 0.9rem;
+}
+
+.laptop-category-options input[type="radio"] {
+  accent-color: var(--uk-primary);
+}
+
+.replacement-information-fields[hidden] {
+  display: none !important;
+}
+
+@media (max-width: 768px) {
+  .device-popup-panel,
+  .record-popup-panel,
+  .staff-popup-panel,
+  .legacy-import-dialog,
+  .dashboard-modal,
+  .return-modal-content,
+  .issue-report-modal-content {
+    max-width: calc(100vw - 1.2rem);
+    max-height: calc(100vh - 1.2rem);
+    border-radius: 10px;
+  }
+
+  .device-popup-body,
+  .record-popup-body,
+  .staff-popup-body,
+  .legacy-import-dialog .modal-body,
+  .dashboard-modal .modal-body,
+  .return-modal-body,
+  .issue-report-modal-body {
+    padding: 1rem;
+  }
+}

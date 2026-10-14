@@ -16,10 +16,46 @@
     <div class="card-value">{{ active_issues_count }}</div>
   </div>
   <div class="card">
-    <div class="card-title">Repairing</div>
+    <div class="card-title">Active repair workflows</div>
     <div class="card-value">{{ repairing_count }}</div>
   </div>
 </div>
+
+{% if inventory_discrepancies %}
+<div class="data-section mb-4">
+  <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap">
+    <div>
+      <h2 class="section-title mb-1">Inventory status discrepancies</h2>
+      <p class="text-muted mb-0">Read-only report for administrator review. No existing records are changed automatically.</p>
+    </div>
+    <span class="badge bg-warning text-dark">{{ inventory_discrepancies|length }} to review</span>
+  </div>
+  <div class="table-responsive mt-3">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Laptop</th>
+          <th>Current status</th>
+          <th>Active assignment</th>
+          <th>Active repair workflows</th>
+          <th>Reason</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in inventory_discrepancies %}
+        <tr>
+          <td>{{ item.laptop.SerialNumber }}</td>
+          <td>{{ item.laptop.status }}</td>
+          <td>{% if item.assignment %}{{ item.assignment.person.name|default:'Assigned user' }}{% else %}None{% endif %}</td>
+          <td>{{ item.active_repairs|length }}</td>
+          <td>{{ item.reasons|join:', ' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
 
 <div class="data-section">
   <h2 class="section-title">Issue List</h2>
@@ -86,8 +122,8 @@
         {% csrf_token %}
         <input type="hidden" name="action" value="create">
         <div class="modal-header issue-report-modal-header">
-          <h5 class="modal-title">Report Device Issue</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          <h5 class="modal-title mb-0">Report Device Issue</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close report issue dialog"></button>
         </div>
         <div class="modal-body issue-report-modal-body">
           <div class="row g-3">
@@ -96,7 +132,7 @@
               <select name="laptop_id" class="form-select" required>
                 <option value="">-- Select Laptop --</option>
                 {% for laptop in available_for_issue %}
-                <option value="{{ laptop.id }}">{{ laptop.SerialNumber }} - {{ laptop.brand }} {{ laptop.name }}</option>
+                <option value="{{ laptop.id }}" {% if selected_laptop_id == laptop.id|stringformat:'s' %}selected{% endif %}>{{ laptop.SerialNumber }} - {{ laptop.brand }} {{ laptop.name }}</option>
                 {% endfor %}
               </select>
             </div>
@@ -124,8 +160,13 @@
               </select>
             </div>
             <div class="col-12">
-              <label class="form-label">Issue Description</label>
-              <textarea name="issue_description" class="form-control" rows="4" placeholder="Describe the issue in detail..." required></textarea>
+              <label class="form-label" for="issueDescription">Issue Description</label>
+              <div id="issueDescriptionHint" class="form-text">Include what happened, when it started, and any troubleshooting already attempted.</div>
+              <textarea id="issueDescription" name="issue_description" class="form-control issue-description-control" rows="4" maxlength="2000" placeholder="Describe the issue in detail..." aria-describedby="issueDescriptionHint issueDescriptionHelp" required></textarea>
+              <div id="issueDescriptionHelp" class="issue-description-meta">
+                <span>Be specific so the repair team can diagnose it quickly.</span>
+                <span>Required</span>
+              </div>
             </div>
           </div>
         </div>
@@ -139,13 +180,6 @@
 </div>
 
 <style>
-:root {
-    --light-blue: #dff2fc;
-    --sky-blue: #70c7ec;
-    --yellow-gold: #f2c94c;
-    --purple-dark: #0b1f78;
-}
-
 .issue-report-modal.modal {
     position: fixed !important;
     inset: 0 !important;
@@ -166,83 +200,152 @@ body.modal-open {
 }
 
 .issue-report-modal-dialog {
-    max-width: 980px;
-    margin: 1rem auto !important;
-    max-height: calc(100vh - 2rem);
+    width: calc(100% - 2rem);
+    max-width: 760px;
+    height: 90vh;
+    max-height: 90vh;
+    margin: 5vh auto !important;
 }
 
 .issue-report-modal-content {
-    border: 0;
-    border-radius: 24px;
+    height: 100%;
+    border: 1px solid #dfe5ee;
+    border-radius: 12px;
     overflow: hidden;
-    background: #f7fbff;
-    box-shadow: 0 24px 60px rgba(11, 31, 120, 0.28);
+    background: #fff;
+    box-shadow: 0 18px 45px rgba(13, 32, 117, 0.16);
+    display: flex;
+    flex-direction: column;
+}
+
+.issue-report-modal-content > form {
+    min-height: 0;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
 }
 
 .issue-report-modal-header {
-    background: linear-gradient(135deg, var(--light-blue), var(--sky-blue));
-    border-bottom: 2px solid var(--yellow-gold);
-    color: var(--purple-dark);
-    padding: 1.15rem 1.5rem;
+    flex: 0 0 auto;
+    background: #eaf3ff;
+    border-bottom: 1px solid #e5b839;
+    color: #0d2075;
+    padding: 1rem 1.35rem;
 }
 
 .issue-report-modal-body {
-    padding: 1.3rem 1.5rem 1.4rem;
+    flex: 1 1 auto;
+    min-height: 0;
+    padding: 1.15rem 1.35rem;
+    background: #fff;
     overflow-y: auto;
 }
 
 .issue-report-modal-body .form-label {
-    font-weight: 700;
-    color: #3e557f;
+    display: block;
+    margin-bottom: 0.4rem;
+    font-weight: 600;
+    color: #263b68;
 }
 
 .issue-report-modal-body .form-control,
 .issue-report-modal-body .form-select,
 .issue-report-modal-body textarea {
-    border-radius: 999px;
-    min-height: 52px;
-    border: 1px solid #e0e7f1;
-    background: rgba(255, 255, 255, 0.92);
-    padding-left: 1rem;
-    padding-right: 1rem;
+    border-radius: 9px;
+    min-height: 44px;
+    border: 1px solid #cfd7e4;
+    background: #fff;
+    color: #263247;
+    padding: 0.6rem 0.8rem;
+}
+
+.issue-report-modal-body .form-select {
+    padding-right: 2.25rem;
 }
 
 .issue-report-modal-body textarea {
-    border-radius: 20px;
-    min-height: 120px;
-    padding-top: 0.85rem;
-    padding-bottom: 0.85rem;
+    border-radius: 9px;
+    min-height: 110px;
+    padding: 0.7rem 0.8rem;
+    line-height: 1.45;
+    resize: vertical;
+}
+
+.issue-description-meta {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-top: 0.35rem;
+    color: #66748a;
+    font-size: 0.75rem;
+}
+
+.issue-description-meta span:last-child {
+    color: #263b68;
+    font-weight: 700;
+    white-space: nowrap;
 }
 
 .issue-report-modal-body .form-control:focus,
 .issue-report-modal-body .form-select:focus,
 .issue-report-modal-body textarea:focus {
-    border-color: var(--yellow-gold);
-    box-shadow: 0 0 0 0.18rem rgba(242, 201, 76, 0.25);
+    border-color: #0d2075;
+    box-shadow: 0 0 0 0.18rem rgba(13, 32, 117, 0.14);
+    outline: none;
 }
 
 .issue-report-modal-footer {
-    border-top: 1px solid rgba(0, 0, 0, 0.08);
-    background: #f7fbff;
-    padding: 0.95rem 1.4rem 1.1rem;
+    flex: 0 0 auto;
+    border-top: 1px solid #e3e7ee;
+    background: #fff;
+    padding: 0.8rem 1.35rem;
+    justify-content: flex-end;
+    gap: 0.6rem;
 }
 
 .issue-report-modal-footer .btn {
-    border-radius: 999px;
-    min-height: 44px;
-    padding-left: 1rem;
-    padding-right: 1rem;
-    font-weight: 700;
+    min-height: 40px;
+    border-radius: 8px;
+    padding: 0.5rem 1rem;
+    font-weight: 600;
 }
 
 .issue-report-modal-footer .btn-primary {
     border: none;
-    background: linear-gradient(135deg, #167fbe, #0b1f78);
+    background: #0d2075;
+}
+
+.issue-report-modal-footer .btn-primary:hover,
+.issue-report-modal-footer .btn-primary:focus {
+    background: #09185b;
+}
+
+.issue-report-modal-footer .btn-light {
+    border: 1px solid #cfd7e4;
+    background: #fff;
+    color: #263247;
+}
+
+.issue-report-modal-footer .btn-light:hover,
+.issue-report-modal-footer .btn-light:focus,
+.issue-report-modal-header .btn-close:focus {
+    border-color: #0d2075;
+    box-shadow: 0 0 0 0.18rem rgba(13, 32, 117, 0.14);
+}
+
+.issue-report-modal-header .btn-close {
+    opacity: 0.75;
+}
+
+.issue-report-modal-header .btn-close:hover {
+    opacity: 1;
 }
 
 @media (max-width: 768px) {
     .issue-report-modal-dialog {
         margin: 0.6rem !important;
+        width: calc(100% - 1.2rem);
+        height: calc(100vh - 1.2rem);
         max-height: calc(100vh - 1.2rem);
     }
 
@@ -252,6 +355,23 @@ body.modal-open {
 
     .issue-report-modal-body {
         padding: 1rem;
+    }
+
+    .issue-report-modal-header {
+        padding: 1rem 1.1rem;
+    }
+
+    .issue-report-modal-footer {
+        padding: 0.75rem 1rem;
+    }
+
+    .issue-description-meta {
+        display: block;
+    }
+
+    .issue-description-meta span:last-child {
+        display: block;
+        margin-top: 0.3rem;
     }
 }
 </style>
