@@ -1992,10 +1992,39 @@ def system_preferences(request):
         return redirect('rental_system:login')
     
     stored_preferences = SystemPreference.objects.order_by('pk').first()
+    default_preferences = {
+        'system_name': 'UniKit - Laptop Rental System',
+        'company_name': 'MIIT',
+        'language': 'en',
+        'date_format': 'Y-m-d',
+        'timezone': 'Asia/Yangon',
+        'email_notifications': True,
+        'assignment_alerts': True,
+        'overdue_alerts': True,
+        'daily_summary': False,
+        'notification_email': current_staff.outlook_mail or '',
+        'default_rental_days': 14,
+        'max_rental_days': 30,
+        'multiple_rentals': False,
+        'auto_serial': True,
+        'serial_prefix': 'LP-',
+        'session_timeout': 30,
+        'password_min_length': 8,
+        'strong_password': True,
+        'login_attempts': 5,
+        'require_2fa': False,
+        'theme': 'default',
+        'primary_color': '#167fbe',
+        'rows_per_page': 10,
+        'compact_mode': False,
+        'animations': True,
+    }
+    if stored_preferences:
+        default_preferences.update(stored_preferences.values or {})
     context = {
         'user': current_staff,
         'title': 'System Preferences',
-        'preferences': stored_preferences.values if stored_preferences else {},
+        'preferences': default_preferences,
     }
     return render(request, 'system_preferences.html', context)
 
@@ -2210,6 +2239,9 @@ def save_preferences(request):
         
         try:
             # Get all preferences from form
+            default_rental_days = max(1, min(int(request.POST.get('default_rental_days', 14)), 365))
+            max_rental_days = max(1, min(int(request.POST.get('max_rental_days', 30)), 365))
+            max_rental_days = max(max_rental_days, default_rental_days)
             preferences = {
                 'system_name': request.POST.get('system_name', 'UniKit - Laptop Rental System'),
                 'company_name': request.POST.get('company_name', 'MIIT'),
@@ -2221,8 +2253,8 @@ def save_preferences(request):
                 'overdue_alerts': request.POST.get('overdue_alerts') == 'on',
                 'daily_summary': request.POST.get('daily_summary') == 'on',
                 'notification_email': request.POST.get('notification_email', ''),
-                'default_rental_days': request.POST.get('default_rental_days', 14),
-                'max_rental_days': request.POST.get('max_rental_days', 30),
+                'default_rental_days': default_rental_days,
+                'max_rental_days': max_rental_days,
                 'multiple_rentals': request.POST.get('multiple_rentals') == 'on',
                 'auto_serial': request.POST.get('auto_serial') == 'on',
                 'serial_prefix': request.POST.get('serial_prefix', 'LP-'),
@@ -2236,10 +2268,6 @@ def save_preferences(request):
                 'rows_per_page': request.POST.get('rows_per_page', 10),
                 'compact_mode': request.POST.get('compact_mode') == 'on',
                 'animations': request.POST.get('animations') == 'on',
-                'audit_log_retention': request.POST.get('audit_log_retention', 90),
-                'auto_backup': request.POST.get('auto_backup') == 'on',
-                'backup_frequency': request.POST.get('backup_frequency', 'daily'),
-                'export_format': request.POST.get('export_format', 'csv'),
             }
             
             staff = ManagementStaff.objects.get(id=staff_id)
