@@ -1194,6 +1194,16 @@ def legacy_assignments_template(request):
     return response
 
 
+def _default_rental_days():
+    """Return the configured rental period, with a safe application default."""
+    preference = SystemPreference.objects.order_by('pk').first()
+    try:
+        value = int((preference.values if preference else {}).get('default_rental_days', 14))
+    except (TypeError, ValueError):
+        value = 14
+    return min(max(value, 1), 365)
+
+
 @transaction.atomic
 def import_legacy_assignments_excel(request):
     """Import the old combined register without denormalizing current records."""
@@ -1219,12 +1229,7 @@ def import_legacy_assignments_excel(request):
         )
         return redirect('rental_system:assigned_laptop_list')
 
-    preference = SystemPreference.objects.order_by('pk').first()
-    try:
-        default_rental_days = int((preference.values if preference else {}).get('default_rental_days', 14))
-    except (TypeError, ValueError):
-        default_rental_days = 14
-    default_rental_days = min(max(default_rental_days, 1), 365)
+    default_rental_days = _default_rental_days()
 
     planned_students = {}
     planned_assignments = []
@@ -1524,7 +1529,7 @@ def assigned_laptop_list(request):
                         person=person,
                         laptop=laptop,
                         issue_date=timezone.now().date(),
-                        expected_return_date=timezone.now().date(),
+                        expected_return_date=timezone.now().date() + timedelta(days=_default_rental_days()),
                         academic_year=str(timezone.now().year),
                         staff=request.management_staff,
                     )
@@ -1557,7 +1562,7 @@ def assigned_laptop_list(request):
                     person=staff.person,
                     laptop=laptop,
                     issue_date=timezone.now().date(),
-                    expected_return_date=timezone.now().date(),
+                    expected_return_date=timezone.now().date() + timedelta(days=_default_rental_days()),
                     academic_year=str(timezone.now().year),
                     staff=request.management_staff,
                 )
@@ -1992,33 +1997,7 @@ def system_preferences(request):
         return redirect('rental_system:login')
     
     stored_preferences = SystemPreference.objects.order_by('pk').first()
-    default_preferences = {
-        'system_name': 'UniKit - Laptop Rental System',
-        'company_name': 'MIIT',
-        'language': 'en',
-        'date_format': 'Y-m-d',
-        'timezone': 'Asia/Yangon',
-        'email_notifications': True,
-        'assignment_alerts': True,
-        'overdue_alerts': True,
-        'daily_summary': False,
-        'notification_email': current_staff.outlook_mail or '',
-        'default_rental_days': 14,
-        'max_rental_days': 30,
-        'multiple_rentals': False,
-        'auto_serial': True,
-        'serial_prefix': 'LP-',
-        'session_timeout': 30,
-        'password_min_length': 8,
-        'strong_password': True,
-        'login_attempts': 5,
-        'require_2fa': False,
-        'theme': 'default',
-        'primary_color': '#167fbe',
-        'rows_per_page': 10,
-        'compact_mode': False,
-        'animations': True,
-    }
+    default_preferences = {'default_rental_days': _default_rental_days()}
     if stored_preferences:
         default_preferences.update(stored_preferences.values or {})
     context = {
@@ -2238,37 +2217,11 @@ def save_preferences(request):
             return redirect('rental_system:login')
         
         try:
-            # Get all preferences from form
-            default_rental_days = max(1, min(int(request.POST.get('default_rental_days', 14)), 365))
-            max_rental_days = max(1, min(int(request.POST.get('max_rental_days', 30)), 365))
-            max_rental_days = max(max_rental_days, default_rental_days)
-            preferences = {
-                'system_name': request.POST.get('system_name', 'UniKit - Laptop Rental System'),
-                'company_name': request.POST.get('company_name', 'MIIT'),
-                'language': request.POST.get('language', 'en'),
-                'date_format': request.POST.get('date_format', 'Y-m-d'),
-                'timezone': request.POST.get('timezone', 'Asia/Yangon'),
-                'email_notifications': request.POST.get('email_notifications') == 'on',
-                'assignment_alerts': request.POST.get('assignment_alerts') == 'on',
-                'overdue_alerts': request.POST.get('overdue_alerts') == 'on',
-                'daily_summary': request.POST.get('daily_summary') == 'on',
-                'notification_email': request.POST.get('notification_email', ''),
-                'default_rental_days': default_rental_days,
-                'max_rental_days': max_rental_days,
-                'multiple_rentals': request.POST.get('multiple_rentals') == 'on',
-                'auto_serial': request.POST.get('auto_serial') == 'on',
-                'serial_prefix': request.POST.get('serial_prefix', 'LP-'),
-                'session_timeout': request.POST.get('session_timeout', 30),
-                'password_min_length': request.POST.get('password_min_length', 8),
-                'strong_password': request.POST.get('strong_password') == 'on',
-                'login_attempts': request.POST.get('login_attempts', 5),
-                'require_2fa': request.POST.get('require_2fa') == 'on',
-                'theme': request.POST.get('theme', 'default'),
-                'primary_color': request.POST.get('primary_color', '#5b72b5'),
-                'rows_per_page': request.POST.get('rows_per_page', 10),
-                'compact_mode': request.POST.get('compact_mode') == 'on',
-                'animations': request.POST.get('animations') == 'on',
-            }
+            try:
+                default_rental_days = int(request.POST.get('default_rental_days', 14))
+            except (TypeError, ValueError):
+                default_rental_days = 14
+            preferences = {'default_rental_days': min(max(default_rental_days, 1), 365)}
             
             staff = ManagementStaff.objects.get(id=staff_id)
             with transaction.atomic():

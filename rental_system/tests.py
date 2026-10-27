@@ -183,14 +183,12 @@ class PhaseOneSecurityTests(TestCase):
         user, profile = self.create_management_staff()
         self.client.force_login(user)
         response = self.client.post(reverse('rental_system:save_preferences'), {
-            'system_name': 'UniKit Production',
-            'timezone': 'Asia/Yangon',
             'default_rental_days': '30',
         })
         self.assertRedirects(response, reverse('rental_system:system_preferences'))
         preference = SystemPreference.objects.get(pk=1)
         self.assertEqual(preference.updated_by, profile)
-        self.assertEqual(preference.values['system_name'], 'UniKit Production')
+        self.assertEqual(preference.values, {'default_rental_days': 30})
 
 
 class AssignmentIntegrityTests(TestCase):
